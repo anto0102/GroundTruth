@@ -54,7 +54,7 @@ flowchart TD
     pkg([package.json]) -->|Parse Dependencies| GT{GroundTruth Watcher}
     GT -->|Search Stack Queries| DDG[(DuckDuckGo)]
     DDG -->|Return Live Docs| GT
-    GT -->|Sync periodically| File[~/.gemini/antigravity/rules.md]
+    GT -->|Sync periodically| File[~/.gemini/GEMINI.md]
     File -->|Auto-loaded| Agent(Antigravity Agent)
     Agent -->|Execute| Prompt[Prompt with Fresh Context]
 
@@ -65,7 +65,7 @@ flowchart TD
 - **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph.
 - **Intelligent Chunking**: Groups the filtered dependencies in configurable size batches (default 3) and uniquely hashes them to avoid redundant context-fetching loops unless changes are detected.
 - **Automated Polling**: Periodically fetches updated documentation for the detected stack chunks in parallel.
-- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/antigravity/rules.md`, natively discarding stale contexts whenever dependencies are removed without affecting existing ones.
+- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/GEMINI.md`, natively discarding stale contexts whenever dependencies are removed without affecting existing ones.
 
 ---
 
