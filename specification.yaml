@@ -48,8 +48,8 @@ core_modules:
   - name: cli.js
     responsibilities: 
       - "Process `process.argv` argument parsing."
-      - "Validation and defaulting of arguments (`--port`, `--interval`, `--batch-size`)."
-      - "Help/Docs Screen rendering and early exit conditions."
+      - "Validation and defaulting of arguments (`--port`, `--interval`, `--batch-size`, `--claude-code`, `--antigravity`)."
+      - "Help/Docs Screen rendering and early exit conditions with aesthetic formatting inspired by Claude Code."
   
   - name: search.js
     responsibilities: 
@@ -65,8 +65,8 @@ core_modules:
     responsibilities: 
       - "Read local Node modules context (`package.json`)."
       - "Clean semantic versions (e.g., `^1.2.3` -> `1.2`)."
-      - "Filter out non-informative tooling (`vite`, `prettier`, `eslint`)."
-      - "Group dependencies into manageable batches (`groupIntoBatches`)."
+      - "Filter out non-informative tooling (`vite`, `prettier`, `eslint`, `plugin`, `adapter`, `check`)."
+      - "Group dependencies into manageable batches (default: 3) prioritizing core dependencies over devDependencies."
       - "Generate deterministic MD5 identifiers per batch for block management (`batchHash`)."
       - "Construct search queries based on dependency batches plus temporal identifiers (`latest 2026`)."
   
@@ -109,7 +109,7 @@ core_modules:
 
   - name: utils/atomic-write.js
     responsibilities:
-      - "Creates temporary file blocks performing `fs.rename` (POSIX) or falls back to standard `fs.copyFile` safe-copies (Windows)."
+      - "Creates temporary file blocks inside the target's directory (to prevent EXDEV cross-device link errors) performing `fs.rename` (POSIX) or safe-copies (Windows)."
 
 dependencies:
   runtime: "Node.js >= 18.0.0 (uses ES Modules)"

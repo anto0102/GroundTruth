@@ -93,7 +93,7 @@ flowchart TD
 - **Intelligent Chunking**: Groups the filtered dependencies in configurable size batches (default 3) and uniquely hashes them to avoid redundant context-fetching loops unless changes are detected.
 - **Automated Polling**: Periodically fetches updated documentation for the detected stack chunks in parallel.
 - **State Persistence**: Hashes are serialized persistently avoiding redundant DuckDuckGo scraping operations across application crashes.
-- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/GEMINI.md`. Native POSIX bindings are leveraged ensuring `Atomic Writes`. Stale contexts are efficiently garbage-collected via regex matching over tracked batch hashes.
+- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/GEMINI.md`. Native POSIX bindings and intra-device temporary files are leveraged ensuring `Atomic Writes` without EXDEV link errors. Stale contexts are efficiently garbage-collected via regex matching over tracked batch hashes.
 
 ---
 
@@ -107,7 +107,7 @@ npx groundtruth --claude-code
 # Execute your agent in a separate TTY
 claude
 ```
-> **Note:** The daemon automatically mutates your shell environment (`~/.zshrc`, `~/.bashrc`, `config.fish`) to route traffic through the localhost proxy.
+> **Note:** The daemon automatically mutates your shell environment (`~/.zshrc`, `~/.bashrc`, `~/.bash_profile`, `~/.config/fish/config.fish`) to route traffic through the localhost proxy.
 
 ### Usage with Antigravity / Gemini
 ```bash
