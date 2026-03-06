@@ -100,6 +100,7 @@ npx groundtruth --antigravity
 | `--use-package-json` | Both | Enforces AST/manifest parsing of `package.json` for query generation. |
 | `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
 | `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
+| `--max-packages <n>` | Rules | Limits the maximum amount of packages queried on DuckDuckGo (Default: `3`, Max: `6`). |
 
 ---
 
