@@ -1,5 +1,7 @@
 node_modules
 /.gemini
 /.agent
+/.agents
 /temp-test
+codice1.2.txt
 *.log
