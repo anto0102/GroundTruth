@@ -13,15 +13,17 @@ const args = process.argv.slice(2);
 const usePackageJson = args.includes('--use-package-json');
 const antigravityMode = args.includes('--antigravity');
 const claudeCodeMode = args.includes('--claude-code');
+const uninstallMode = args.includes('--uninstall');
 
 // Stop immediato se nessun mode definito
-if (!antigravityMode && !claudeCodeMode) {
+if (!antigravityMode && !claudeCodeMode && !uninstallMode) {
     console.log();
     console.log(`  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}`);
     console.log();
     console.log(`  Usage:`);
     console.log(`    groundtruth --claude-code       proxy mode (Claude Code)`);
     console.log(`    groundtruth --antigravity       rules mode (Antigravity/Gemini)`);
+    console.log(`    groundtruth --uninstall         remove shell env config`);
     console.log();
     console.log(`  Options:`);
     console.log(`    --use-package-json   use package.json as search query`);
@@ -55,4 +57,4 @@ const batchSize = batchSizeIndex !== -1
     ? Math.max(2, Math.min(parseInt(args[batchSizeIndex + 1]) || 3, 5))
     : 3;
 
-export { args, usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize, version };
+export { args, usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, port, intervalMinutes, batchSize, version };

@@ -2,7 +2,8 @@
  * @module state
  * @description Persiste la memoria di antigravity prev-hash per fault tolleranza riavvii.
  */
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, mkdir } from 'fs/promises';
+import { atomicWrite } from './utils/atomic-write.js';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -33,5 +34,5 @@ export async function loadBatchState() {
 export async function saveBatchState(map) {
     await mkdir(STATE_DIR, { recursive: true });
     const obj = Object.fromEntries(map);
-    await writeFile(STATE_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    await atomicWrite(STATE_FILE, JSON.stringify(obj, null, 2), { backup: false });
 }

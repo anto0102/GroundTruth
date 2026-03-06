@@ -6,6 +6,7 @@ import os from 'os';
 import path from 'path';
 import { webSearch } from './search.js';
 import { readPackageDeps, buildQuery, groupIntoBatches, batchHash } from './packages.js';
+import { sanitizeWebContent } from './sanitize.js';
 import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
 import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { version } from './cli.js';
@@ -84,16 +85,16 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                     globalMd += `**Query:** ${query}\n\n`;
                     if (results.length > 0) {
                         globalMd += `### ${results[0].title}\n`;
-                        globalMd += `${results[0].snippet.slice(0, 300)} — ${results[0].url}\n`;
+                        globalMd += `${sanitizeWebContent(results[0].snippet, 300)} — ${results[0].url}\n`;
                     }
 
                     let md = `## Live Context — ${batchTitle} (${nowStr})\n`;
                     md += `**Query:** ${query}\n\n`;
                     for (const r of results) {
-                        md += `### ${r.title}\n${r.snippet} — ${r.url}\n\n`;
+                        md += `### ${r.title}\n${sanitizeWebContent(r.snippet, 500)} — ${r.url}\n\n`;
                     }
                     if (pageText) {
-                        md += `FULL TEXT: ${pageText}\n`;
+                        md += `FULL TEXT: ${sanitizeWebContent(pageText)}\n`;
                     }
 
                     await updateGeminiFiles([{

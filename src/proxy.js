@@ -8,6 +8,7 @@ import { webSearch } from './search.js';
 import { readPackageDeps, buildQuery } from './packages.js';
 import { chalk, log, LOG_WARN, LOG_BOLT } from './logger.js';
 import { httpsAgent } from './http-agent.js';
+import { sanitizeWebContent } from './sanitize.js';
 
 // ─── HTTP Node server daemon ─────────────────────────
 
@@ -98,9 +99,9 @@ export async function createServer(usePackageJson) {
 
                 contextBlock = `\n\n--- WEB CONTEXT (live, ${new Date().toISOString()}) ---\n`;
                 results.forEach((r, i) => {
-                    contextBlock += `${i + 1}. ${r.title}: ${r.snippet} (${r.url})\n`;
+                    contextBlock += `${i + 1}. ${r.title}: ${sanitizeWebContent(r.snippet, 500)} (${r.url})\n`;
                 });
-                if (pageText) contextBlock += `\nFULL TEXT:\n${pageText}\n`;
+                if (pageText) contextBlock += `\nFULL TEXT:\n${sanitizeWebContent(pageText)}\n`;
                 contextBlock += `--- END WEB CONTEXT ---\n`;
                 didInject = true;
             } catch (_) {

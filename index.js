@@ -4,14 +4,18 @@
  * @description Entry point runtime groundtruth delegazione CLI o proxy flow logic.
  */
 import { chalk, label } from './src/logger.js';
-import { usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize, version } from './src/cli.js';
+import { usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, port, intervalMinutes, batchSize, version } from './src/cli.js';
 import { createServer } from './src/proxy.js';
-import { autoSetEnv } from './src/env.js';
+import { autoSetEnv, removeEnv } from './src/env.js';
 import { startWatcher } from './src/watcher.js';
 
 // ─── Dispatcher start app logic ──────────────────────
 
-if (antigravityMode) {
+if (uninstallMode) {
+  console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[uninstall]')}\n`);
+  await removeEnv();
+  process.exit(0);
+} else if (antigravityMode) {
   startWatcher({ intervalMinutes, usePackageJson, batchSize });
 } else if (claudeCodeMode) {
   const server = await createServer(usePackageJson);

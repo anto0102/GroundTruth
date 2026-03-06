@@ -35,7 +35,7 @@ export class CircuitBreaker {
             this.onSuccess();
             return result;
         } catch (err) {
-            this.onFailure();
+            this.onFailure(err);
             throw err;
         }
     }
@@ -53,8 +53,13 @@ export class CircuitBreaker {
         }
     }
 
-    onFailure() {
-        this.failures++;
+    onFailure(err) {
+        // 429 rate limit apre il circuito immediatamente
+        if (err?.message?.includes('429')) {
+            this.failures = this.failureThreshold;
+        } else {
+            this.failures++;
+        }
         this.lastFailureTime = Date.now();
         if (this.failures >= this.failureThreshold) {
             this.state = 'OPEN';

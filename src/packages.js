@@ -5,6 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createHash } from 'crypto';
+import { chalk, log, LOG_WARN } from './logger.js';
 
 // ─── Logica Dipendenze ───────────────────────────────
 
@@ -41,7 +42,8 @@ export async function readPackageDeps() {
         selected = selected.concat(filterAndFormat(pkg.devDependencies));
 
         return selected.length > 0 ? selected : null;
-    } catch (_) {
+    } catch (err) {
+        log(LOG_WARN, chalk.yellow, chalk.white('package.json parse error') + `  →  ${chalk.yellow(err.message)}`);
         return null;
     }
 }

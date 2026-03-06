@@ -9,6 +9,7 @@ import { DOMParser } from 'linkedom';
 import { searchCache } from './cache.js';
 import { CircuitBreaker } from './circuit-breaker.js';
 import { httpAgent, httpsAgent } from './http-agent.js';
+import { sanitizeWebContent } from './sanitize.js';
 
 // ─── Config & Cache ──────────────────────────────────
 
@@ -118,7 +119,7 @@ export async function webSearch(query, parallel = false) {
                     } catch (_) {
                         text = document.body?.textContent || '';
                     }
-                    if (text) return text.replace(/\s+/g, ' ').slice(0, 4000);
+                    if (text) return sanitizeWebContent(text.replace(/\s+/g, ' '), 4000);
                 }
             } catch (_) { // fail silenzioso parallelo tollerato per timeout link third-party
             }
@@ -143,7 +144,7 @@ export async function webSearch(query, parallel = false) {
                         text = document.body?.textContent || '';
                     }
                     if (text) {
-                        pageText = text.replace(/\s+/g, ' ').slice(0, 4000);
+                        pageText = sanitizeWebContent(text.replace(/\s+/g, ' '), 4000);
                     }
                 }
             }

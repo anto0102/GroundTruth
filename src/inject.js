@@ -33,6 +33,7 @@ export async function injectBlock(filePath, content, blockId) {
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
         fileContent = fileContent.slice(0, startIndex) + block + fileContent.slice(endIndex + endTag.length);
     } else {
+        fileContent = fileContent.trimEnd() + '\n\n' + block + '\n';
     }
 
     await atomicWrite(filePath, fileContent);
