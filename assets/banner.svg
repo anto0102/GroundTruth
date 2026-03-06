@@ -98,7 +98,7 @@
   </text>
 
   <text x="50%" y="68%" text-anchor="middle" font-family="-apple-system, system-ui, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-size="28" font-weight="500" fill="#94a3b8" letter-spacing="4">
-    ZERO ZERO-CONFIGURATION CONTEXT INJECTION
+    ZERO-CONFIGURATION CONTEXT INJECTION
   </text>
   
   <rect x="350" y="72%" width="500" height="2" fill="rgba(255,255,255,0.1)" />

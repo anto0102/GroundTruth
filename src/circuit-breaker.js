@@ -61,6 +61,7 @@ export class CircuitBreaker {
             this.failures++;
         }
         this.lastFailureTime = Date.now();
+        this.halfOpenSuccesses = 0; // reset per evitare accumulo tra cicli HALF_OPEN
         if (this.failures >= this.failureThreshold) {
             this.state = 'OPEN';
         }

@@ -124,6 +124,7 @@ npx @antodevs/groundtruth --antigravity
 |------|------|-------------|
 | `--claude-code` | Proxy | Initializes HTTP interceptor for Anthropic API payloads. |
 | `--antigravity` | Rules | Initializes background daemon for dotfile synchronization. |
+| `--uninstall` | Cleanup | Removes `ANTHROPIC_BASE_URL` from all shell config files. |
 | `--use-package-json` | Both | Enforces AST/manifest parsing of `package.json` for query generation. |
 | `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
 | `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
