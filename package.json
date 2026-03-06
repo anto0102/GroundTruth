@@ -3,6 +3,34 @@
   "version": "0.1.0",
   "description": "Lightweight Node.js proxy to intercept API requests from coding agents and inject fresh web context",
   "type": "module",
+  "license": "MIT",
+  "author": "Anto",
+  "keywords": [
+    "llm",
+    "context",
+    "ai",
+    "proxy",
+    "gemini",
+    "anthropic",
+    "claude",
+    "antigravity",
+    "coding-assistant"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anto0102/GroundTruth.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "assets/",
+    "specification.yaml",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "groundtruth": "./index.js"
   },
