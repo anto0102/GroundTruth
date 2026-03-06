@@ -2,10 +2,12 @@
  * @module inject
  * @description Gestisce l'aggiunta o check dei file skills GEMINI.md system.
  */
-import fs from 'fs';
+import fs from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 import { chalk, log, LOG_WARN, LOG_REFRESH } from './logger.js';
+import { atomicWrite } from './utils/atomic-write.js';
 
 // ─── Document injection rules ────────────────────────
 
@@ -14,11 +16,12 @@ import { chalk, log, LOG_WARN, LOG_REFRESH } from './logger.js';
  * @param {string} filePath - Absolute path write operation target rule doc file
  * @param {string} content  - Content plain formattato markdown text raw update
  * @param {string} blockId  - identificativo 8 char associato
+ * @returns {Promise<void>}
  */
-export function injectBlock(filePath, content, blockId) {
+export async function injectBlock(filePath, content, blockId) {
     let fileContent = '';
-    if (fs.existsSync(filePath)) {
-        fileContent = fs.readFileSync(filePath, 'utf8');
+    if (existsSync(filePath)) {
+        fileContent = await fs.readFile(filePath, 'utf8');
     }
     const startTag = `<!-- groundtruth:block-${blockId}:start -->`;
     const endTag = `<!-- groundtruth:block-${blockId}:end -->`;
@@ -30,19 +33,20 @@ export function injectBlock(filePath, content, blockId) {
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
         fileContent = fileContent.slice(0, startIndex) + block + fileContent.slice(endIndex + endTag.length);
     } else {
-        fileContent = fileContent.trimEnd() + (fileContent.trimEnd() ? '\n\n' : '') + block + '\n';
     }
-    fs.writeFileSync(filePath, fileContent, 'utf8');
+
+    await atomicWrite(filePath, fileContent);
 }
 
 /**
- * @description Identifica blocchi dipendenze vecchi invalidati non matchati set corrente target attivi e li slice-off dal buffer
+ * @description Identifica blocchi dipendenze vecchi invalidati e li cancella dal file
  * @param {string} filePath       - File path workspace markdown context rules locale
  * @param {Set}    activeBlockIds - ids attivi elaborati nel watcher logic timer task loop cycle
+ * @returns {Promise<void>}
  */
-export function removeStaleBlocks(filePath, activeBlockIds) {
-    if (!fs.existsSync(filePath)) return;
-    let fileContent = fs.readFileSync(filePath, 'utf8');
+export async function removeStaleBlocks(filePath, activeBlockIds) {
+    if (!existsSync(filePath)) return;
+    let fileContent = await fs.readFile(filePath, 'utf8');
     const regex = /<!-- groundtruth:block-(\w+):start -->[\s\S]*?<!-- groundtruth:block-\w+:end -->/g;
 
     let modified = false;
@@ -57,32 +61,33 @@ export function removeStaleBlocks(filePath, activeBlockIds) {
 
     if (modified) {
         fileContent = fileContent.replace(/\n{3,}/g, '\n\n').trim() + '\n';
-        fs.writeFileSync(filePath, fileContent, 'utf8');
+        await atomicWrite(filePath, fileContent);
     }
 }
 
 /**
  * @description Interfaccia logic per sincronizzare multiple blocks local workspace skill context
  * @param {Array} blocks  - Blocchi aggiornati
+ * @returns {Promise<void>}
  */
-export function updateGeminiFiles(blocks) {
+export async function updateGeminiFiles(blocks) {
     const homeDir = os.homedir();
     const rulesDir = path.join(process.cwd(), '.gemini');
-    fs.mkdirSync(rulesDir, { recursive: true });
+    await fs.mkdir(rulesDir, { recursive: true });
     const skillFile = path.join(rulesDir, 'GEMINI.md');
 
     const globalRulesDir = path.join(homeDir, '.gemini');
-    fs.mkdirSync(globalRulesDir, { recursive: true });
+    await fs.mkdir(globalRulesDir, { recursive: true });
     const globalSkillFile = path.join(globalRulesDir, 'GEMINI.md');
 
     const samePath = path.resolve(globalSkillFile) === path.resolve(skillFile);
 
     for (const b of blocks) {
         if (samePath) {
-            injectBlock(skillFile, b.workspaceContent, b.blockId);
+            await injectBlock(skillFile, b.workspaceContent, b.blockId);
         } else {
-            injectBlock(globalSkillFile, b.globalContent, b.blockId);
-            injectBlock(skillFile, b.workspaceContent, b.blockId);
+            await injectBlock(globalSkillFile, b.globalContent, b.blockId);
+            await injectBlock(skillFile, b.workspaceContent, b.blockId);
         }
     }
 }

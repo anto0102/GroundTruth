@@ -9,6 +9,8 @@ import { readPackageDeps, buildQuery, groupIntoBatches, batchHash } from './pack
 import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
 import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { version } from './cli.js';
+import { loadBatchState, saveBatchState } from './state.js';
+import { httpsAgent } from './http-agent.js';
 
 // ─── Scheduler Watcher Instance ──────────────────────
 
@@ -32,10 +34,13 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     console.log(`  ${chalk.cyan('✻')} Running. Antigravity will load context automatically.`);
     console.log();
 
-    const previousBatchHashes = new Map();
+    let previousBatchHashes = new Map();
 
     async function updateSkill() {
-        const deps = readPackageDeps(); // tutte le deps
+        if (previousBatchHashes.size === 0) {
+            previousBatchHashes = await loadBatchState();
+        }
+        const deps = await readPackageDeps(); // tutte le deps
         if (!deps || deps.length === 0) {
             return; // fall back to something default or just skip 
         }
@@ -46,73 +51,96 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
         let skippedCount = 0;
         let failedCount = 0;
 
-        await Promise.all(batches.map(async (batch) => {
-            const blockId = batchHash(batch);
-            activeBlockIds.add(blockId);
+        const maxConcurrency = 3;
+        const executing = new Set();
 
-            const currentHash = batchHash(batch);
-            if (previousBatchHashes.get(blockId) === currentHash) {
-                // batch invariato → skip
-                skippedCount++;
-                return;
-            }
+        for (const batch of batches) {
+            const promise = (async () => {
+                const blockId = batchHash(batch);
+                activeBlockIds.add(blockId);
 
-            // batch cambiato o nuovo → cerca
-            const query = buildQuery(batch);
-            try {
-                const { results, pageText } = await webSearch(query, false);
+                const currentHash = batchHash(batch);
+                if (previousBatchHashes.get(blockId) === currentHash) {
+                    skippedCount++;
+                    return;
+                }
 
-                // quality check
-                const badSignals = ['403', 'captcha', 'blocked', 'access denied', 'forbidden'];
-                const isBad = !pageText || pageText.length < 200 || badSignals.some(s => pageText.toLowerCase().includes(s));
-                if (isBad && previousBatchHashes.has(blockId)) {
-                    log(LOG_WARN, chalk.yellow, `low quality result for block ${blockId} → keeping previous context`);
+                const query = buildQuery(batch);
+                try {
+                    const { results, pageText } = await webSearch(query, false);
+                    const badSignals = ['403', 'captcha', 'blocked', 'access denied', 'forbidden'];
+                    const isBad = !pageText || pageText.length < 200 || badSignals.some(s => pageText.toLowerCase().includes(s));
+                    if (isBad && previousBatchHashes.has(blockId)) {
+                        log(LOG_WARN, chalk.yellow, `low quality result for block ${blockId} → keeping previous context`);
+                        failedCount++;
+                        return;
+                    }
+
+                    const now = new Date();
+                    const nowStr = now.toLocaleString('it-IT');
+                    const batchTitle = batch.map(b => b.split(' ')[0]).join(', ');
+
+                    let globalMd = `## Live Context — ${batchTitle} (${nowStr})\n`;
+                    globalMd += `**Query:** ${query}\n\n`;
+                    if (results.length > 0) {
+                        globalMd += `### ${results[0].title}\n`;
+                        globalMd += `${results[0].snippet.slice(0, 300)} — ${results[0].url}\n`;
+                    }
+
+                    let md = `## Live Context — ${batchTitle} (${nowStr})\n`;
+                    md += `**Query:** ${query}\n\n`;
+                    for (const r of results) {
+                        md += `### ${r.title}\n${r.snippet} — ${r.url}\n\n`;
+                    }
+                    if (pageText) {
+                        md += `FULL TEXT: ${pageText}\n`;
+                    }
+
+                    await updateGeminiFiles([{
+                        blockId,
+                        globalContent: globalMd,
+                        workspaceContent: md
+                    }]);
+
+                    previousBatchHashes.set(blockId, currentHash);
+                    updatedCount++;
+                    log(LOG_REFRESH, chalk.cyan, `block ${blockId} updated → ${batch.join(', ')}`);
+                } catch (e) {
                     failedCount++;
-                    return; // non sovrascrivere
+                    log(LOG_WARN, chalk.yellow, `block ${blockId} fetch failed → keeping previous`);
                 }
+            })().then(() => executing.delete(promise));
 
-                const now = new Date();
-                const nowStr = now.toLocaleString('it-IT');
-                const batchTitle = batch.map(b => b.split(' ')[0]).join(', '); // extracting base name
-
-                let globalMd = `## Live Context — ${batchTitle} (${nowStr})\n`;
-                globalMd += `**Query:** ${query}\n\n`;
-                if (results.length > 0) {
-                    globalMd += `### ${results[0].title}\n`;
-                    globalMd += `${results[0].snippet.slice(0, 300)} — ${results[0].url}\n`;
-                }
-
-                let md = `## Live Context — ${batchTitle} (${nowStr})\n`;
-                md += `**Query:** ${query}\n\n`;
-                for (const r of results) {
-                    md += `### ${r.title}\n${r.snippet} — ${r.url}\n\n`;
-                }
-                if (pageText) {
-                    md += `FULL TEXT: ${pageText}\n`;
-                }
-
-                await updateGeminiFiles([{
-                    blockId,
-                    globalContent: globalMd,
-                    workspaceContent: md
-                }]);
-
-                previousBatchHashes.set(blockId, currentHash);
-                updatedCount++;
-                log(LOG_REFRESH, chalk.cyan, `block ${blockId} updated → ${batch.join(', ')}`);
-            } catch (e) {
-                failedCount++;
-                log(LOG_WARN, chalk.yellow, `block ${blockId} fetch failed → keeping previous`);
+            executing.add(promise);
+            if (executing.size >= maxConcurrency) {
+                await Promise.race(executing);
             }
-        }));
+        }
+        await Promise.all(executing);
 
-        removeStaleBlocks(globalPath, activeBlockIds);
-        removeStaleBlocks(workspacePath, activeBlockIds);
+        await removeStaleBlocks(globalPath, activeBlockIds);
+        await removeStaleBlocks(workspacePath, activeBlockIds);
+
+        await saveBatchState(previousBatchHashes);
 
         log(LOG_REFRESH, chalk.gray, `cycle done → ${activeBlockIds.size} blocks active, ${updatedCount} updated, ${skippedCount} skipped, ${failedCount} errors`);
     }
 
+    let cycleCount = 0;
+
+    // Periodical state persistence on process exit to avoid total crash data loss
+    process.on('SIGINT', async () => {
+        await saveBatchState(previousBatchHashes);
+        process.exit(0);
+    });
+
     // Lancio a startup immediato
     updateSkill();
-    setInterval(updateSkill, intervalMinutes * 60 * 1000);
+    setInterval(() => {
+        cycleCount++;
+        if (cycleCount % 10 === 0) {
+            httpsAgent.destroy(); // Forza chiusura idle connections
+        }
+        updateSkill();
+    }, intervalMinutes * 60 * 1000);
 }

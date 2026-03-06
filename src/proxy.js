@@ -7,18 +7,19 @@ import https from 'https';
 import { webSearch } from './search.js';
 import { readPackageDeps, buildQuery } from './packages.js';
 import { chalk, log, LOG_WARN, LOG_BOLT } from './logger.js';
+import { httpsAgent } from './http-agent.js';
 
 // ─── HTTP Node server daemon ─────────────────────────
 
 /**
  * @description Main listener Anthropic port interceptor content system stream 
  * @param   {boolean} usePackageJson - Overrides per fallback module args
- * @returns {http.Server} Istanza server network configurata listen loop
+ * @returns {Promise<http.Server>} Istanza server network configurata listen loop
  */
-export function createServer(usePackageJson) {
+export async function createServer(usePackageJson) {
     let packageQueryCache = null;
     if (usePackageJson) {
-        const depEntries = readPackageDeps();
+        const depEntries = await readPackageDeps();
         if (depEntries) packageQueryCache = buildQuery(depEntries);
     }
 
@@ -35,8 +36,18 @@ export function createServer(usePackageJson) {
         }
 
         try {
+            const MAX_PAYLOAD_SIZE = 10 * 1024 * 1024; // 10MB limit
             let bodyChunks = [];
-            for await (const chunk of req) bodyChunks.push(chunk);
+            let bodyLength = 0;
+            for await (const chunk of req) {
+                bodyLength += chunk.length;
+                if (bodyLength > MAX_PAYLOAD_SIZE) {
+                    res.writeHead(413, { 'Content-Type': 'text/plain' });
+                    res.end('Payload Too Large');
+                    return;
+                }
+                bodyChunks.push(chunk);
+            }
             const rawBody = Buffer.concat(bodyChunks);
 
             let parsedBody;
@@ -70,7 +81,8 @@ export function createServer(usePackageJson) {
                 const text = lastUserMessage || '';
                 shortMsg = text.replace(/\s+/g, ' ').trim().slice(0, 50);
                 query = text.slice(0, 120).replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
-                query = `${query} 2026`.trim();
+                const year = new Date().getFullYear();
+                query = `${query} ${year}`.trim();
             }
 
             const t0 = Date.now();
@@ -79,7 +91,7 @@ export function createServer(usePackageJson) {
             let resultsCount = 0;
 
             try {
-                if (!query || query.trim() === '2026') throw new Error('Empty query');
+                if (!query || query.trim() === String(new Date().getFullYear())) throw new Error('Empty query');
                 // parallel load in proxy app process to boost response load
                 const { results, pageText } = await webSearch(query, true);
                 resultsCount = results.length;
@@ -110,13 +122,18 @@ export function createServer(usePackageJson) {
                 } else if (protocol === 'GEMINI') {
                     if (!parsedBody.systemInstruction) {
                         parsedBody.systemInstruction = { role: 'system', parts: [] };
-                    } else if (!parsedBody.systemInstruction.parts) {
-                        parsedBody.systemInstruction.parts = [];
-                    } else if (!Array.isArray(parsedBody.systemInstruction.parts)) {
-                        parsedBody.systemInstruction.parts = typeof parsedBody.systemInstruction.parts.text === 'string'
-                            ? [parsedBody.systemInstruction.parts] : [];
                     }
-                    parsedBody.systemInstruction.parts.push({ text: contextBlock });
+                    const sys = parsedBody.systemInstruction;
+                    if (!Array.isArray(sys.parts)) {
+                        if (typeof sys.parts === 'object' && sys.parts !== null) {
+                            sys.parts = [sys.parts];
+                        } else if (typeof sys.parts === 'string') {
+                            sys.parts = [{ text: sys.parts }];
+                        } else {
+                            sys.parts = [];
+                        }
+                    }
+                    sys.parts.push({ text: contextBlock });
                 }
             }
 
@@ -130,7 +147,7 @@ export function createServer(usePackageJson) {
             delete headers['host'];
             headers['content-length'] = Buffer.byteLength(reqBodyStr);
 
-            const proxyReq = https.request(targetUrl, { method: req.method, headers }, (proxyRes) => {
+            const proxyReq = https.request(targetUrl, { method: req.method, headers, agent: httpsAgent }, (proxyRes) => {
                 res.writeHead(proxyRes.statusCode, proxyRes.headers);
                 proxyRes.pipe(res);
             });

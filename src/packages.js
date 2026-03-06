@@ -2,7 +2,7 @@
  * @module packages
  * @description Utilita per estrarre il package array e generare queries LLM a blocchi.
  */
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { createHash } from 'crypto';
 
@@ -10,13 +10,17 @@ import { createHash } from 'crypto';
 
 /**
  * @description Analizza deps di system locali escludendo packages non rilevanti
- * @returns {Array|null} Array strings stack locale o null in fallback error
+ * @returns {Promise<Array|null>} Array strings stack locale o null in fallback error
  */
-export function readPackageDeps() {
+export async function readPackageDeps() {
     try {
         const pkgPath = path.resolve(process.cwd(), 'package.json');
-        if (!fs.existsSync(pkgPath)) return null;
-        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        try {
+            await fs.access(pkgPath);
+        } catch (_) {
+            return null;
+        }
+        const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
 
         const excludeList = ["plugin", "adapter", "check", "eslint", "prettier", "vite", "rollup", "webpack", "babel"];
 
@@ -75,8 +79,9 @@ export function batchHash(batch) {
  * @returns {string} Target string duck duck query
  */
 export function buildQuery(deps) {
+    const year = new Date().getFullYear();
     if (deps && deps.length > 0) {
-        return `${deps.join(' ')} latest 2026`;
+        return `${deps.join(' ')} latest ${year}`;
     }
-    return 'javascript web development best practices 2026';
+    return `javascript web development best practices ${year}`;
 }

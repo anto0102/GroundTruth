@@ -56,9 +56,10 @@ core_modules:
       - "DuckDuckGo HTML scraping using `cheerio`."
       - "URL resolution from DuckDuckGo's `uddg` tracking links."
       - "User-Agent rotation to mitigate scraping blocks."
-      - "Network Request Retry implementation with exponential/static backoff."
-      - "In-memory caching (`CACHE_TTL` = 5 minutes)."
-      - "Page content extraction using `jsdom` and Mozilla's `Readability`."
+      - "Integration with `CircuitBreaker` pattern for rate-limit protection."
+      - "Integration with bounded custom O(1) `LRUCache` from `cache.js`."
+      - "Page content extraction using `linkedom` and Mozilla's `Readability`."
+      - "Integration with persistent connection pooling components from `http-agent.js`."
   
   - name: packages.js
     responsibilities: 
@@ -86,6 +87,29 @@ core_modules:
       - "File I/O operations for `GEMINI.md` in both `$HOME` and `$CWD`."
       - "Regex-based block injection using exact start/end bounds matching."
       - "Stale block eviction via `removeStaleBlocks`."
+      - "Uses `atomicWrite` for zero-corruption file replacements."
+
+  - name: cache.js
+    responsibilities:
+      - "Implements zero-dependency O(1) bounded LRU caching logic."
+      - "Provides getter/setter mechanisms tied to temporal eviction limits."
+
+  - name: circuit-breaker.js
+    responsibilities:
+      - "Manages DuckDuckGo fetch attempts via threshold-based error state wrapping (OPEN/HALF_OPEN/CLOSED)."
+
+  - name: state.js
+    responsibilities:
+      - "Persistent recovery system for dependency batch hashes mapping across system crash/restarts."
+      - "Reads and writes `.gemini/watcher-state.json`."
+
+  - name: http-agent.js
+    responsibilities:
+      - "Creates reusable Keep-Alive HTTP and HTTPS configuration agents to mitigate handshake overheads."
+
+  - name: utils/atomic-write.js
+    responsibilities:
+      - "Creates temporary file blocks performing `fs.rename` (POSIX) or falls back to standard `fs.copyFile` safe-copies (Windows)."
 
 dependencies:
   runtime: "Node.js >= 18.0.0 (uses ES Modules)"
@@ -99,7 +123,7 @@ dependencies:
   third_party:
     - chalk: "^5.3.0" # Terminal styling
     - cheerio: "^1.0.0" # Fast HTML parsing for DDG results
-    - jsdom: "^24.0.0" # DOM emulation for Mozilla Readability
+    - linkedom: "^0.18.5" # Lightweight DOM emulation for Mozilla Readability
     - node-fetch: "^3.3.2" # WHATWG Fetch API polyfill for Node
     - "@mozilla/readability": "^0.5.0" # Main content extraction
 
@@ -112,7 +136,8 @@ mechanics:
     - "Fallback mechanism: If a result is flagged as low-quality, the watcher rolls back and retains the successfully injected markdown block from the previous cycle."
   network_resilience:
     - "Timeouts: All outbound `node-fetch` requests strictly adhere to a 5-second `AbortSignal.timeout(5000)`."
-    - "Retries: A single 1-second delay retry is implemented in `search.js` if the primary DDG request fails, accounting for aggressive rate-limiting."
+    - "Retries & Bans: `search.js` relies on a `CircuitBreaker` class mitigating recursive DuckDuckGo IP bans."
+    - "Resource Connection: Avoids TCP handshakes through persistent keep-alive Agent dispatching."
   shell_integration:
     - "Darwin/Linux-first: Windows OS (`win32`) skips autoconfig cleanly."
     - "Fish Shell paths uniquely utilize `set -gx` constructs unlike standard Bash/Zsh `export` syntax, appending recursively or mutating existing assignments."

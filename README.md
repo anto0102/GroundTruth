@@ -42,8 +42,8 @@ sequenceDiagram
 ```
 
 - **Query Extraction**: Parses the user prompt to identify context dependencies.
-- **Data Hydration**: Orchestrates an automated DuckDuckGo search to fetch the most recent documentation.
-- **Payload Mutation**: Mutates the outgoing system prompt to inject the scraped live context before forwarding the request to the Anthropic completion endpoint.
+- **Data Hydration**: Orchestrates an automated DuckDuckGo search to fetch the most recent documentation. It relies on a deterministic `LRUCache`, TCP keep-alive Pool configurations, and a 429-aware `CircuitBreaker` pattern to safeguard network operations safely.
+- **Payload Mutation**: Mutates the outgoing system prompt to inject the scraped live context before forwarding the request to the Anthropic completion endpoint. (It includes type-guard structures making it safe from undocumented Gemini system changes).
 
 ### 2. File Watcher Mode (Designed for `antigravity` / `gemini`)
 
@@ -65,7 +65,8 @@ flowchart TD
 - **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph.
 - **Intelligent Chunking**: Groups the filtered dependencies in configurable size batches (default 3) and uniquely hashes them to avoid redundant context-fetching loops unless changes are detected.
 - **Automated Polling**: Periodically fetches updated documentation for the detected stack chunks in parallel.
-- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/GEMINI.md`, natively discarding stale contexts whenever dependencies are removed without affecting existing ones.
+- **State Persistence**: Hashes are serialized persistently avoiding redundant DuckDuckGo scraping operations across application crashes.
+- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/GEMINI.md`. Native POSIX bindings are leveraged ensuring `Atomic Writes`. Stale contexts are efficiently garbage-collected via regex matching over tracked batch hashes.
 
 ---
 
@@ -114,7 +115,7 @@ GroundTruth is heavily optimized for zero-configuration deployments and minimal 
 | **Authentication** | None Required | API Key | None Required | API Key |
 | **Token Overhead** | ~500 tokens | ~800 tokens | ~13,000 tokens | ~800 tokens |
 | **Antigravity Support** | Native | Unsupported | Unsupported | Unsupported |
-| **Runtime Footprint** | < 3MB | < 1MB | ~200MB | < 1MB |
+| **Runtime Footprint** | < 1MB | < 1MB | ~200MB | < 1MB |
 | **Shell Auto-config** | Automated | Manual | Manual | Manual |
 
 ---
