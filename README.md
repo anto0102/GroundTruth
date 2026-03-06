@@ -97,12 +97,10 @@ flowchart TD
 
 ---
 
-## Installation & Usage
-
 ### Usage with Claude Code
 ```bash
 # Initialize GroundTruth in proxy mode (auto-exports ANTHROPIC_BASE_URL)
-npx groundtruth --claude-code
+npx @antodevs/groundtruth --claude-code
 
 # Execute your agent in a separate TTY
 claude
@@ -114,7 +112,7 @@ claude
 cd /workspace/your-project
 
 # Initialize the daemon in file watcher mode
-npx groundtruth --antigravity
+npx @antodevs/groundtruth --antigravity
 ```
 > **Note:** GroundTruth will continuously poll and sync documentation based on your `package.json` manifest.
 
