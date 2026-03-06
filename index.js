@@ -22,7 +22,6 @@ if (antigravityMode) {
       console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[claude-code mode]')}\n`);
       console.log(label('◆', 'proxy', `localhost:${p}`));
       console.log(label('◆', 'anthropic', '/v1/messages'));
-      console.log(label('◆', 'gemini', '/v1beta/…'));
       console.log(label('◆', 'context', 'DuckDuckGo → live'));
       console.log(`\n  ${chalk.cyan('✻')} Listening. Set ANTHROPIC_BASE_URL=http://localhost:${p}\n`);
       await autoSetEnv(p);

@@ -25,7 +25,7 @@ npx @antodevs/groundtruth --antigravity
 Intercepts outbound API calls and injects fresh documentation directly into the message payload.
 
 ```bash
-npx @antodevs/groundtruth --port 8080
+npx @antodevs/groundtruth --claude-code
 ```
 
 ## Installation
