@@ -14,11 +14,17 @@
 
 Run GroundTruth instantly via `npx`:
 
-```bash
-# Antigravity Mode (Recommended for AI Watcher)
-npx @antodevs/groundtruth --antigravity
+### 1. Antigravity Mode (AI Watcher)
+Recommended for automated context injection and skills-based workflows.
 
-# Proxy Mode (For Claude Code integration)
+```bash
+npx @antodevs/groundtruth --antigravity
+```
+
+### 2. Proxy Mode (Claude Code)
+Intercepts outbound API calls and injects fresh documentation directly into the message payload.
+
+```bash
 npx @antodevs/groundtruth --port 8080
 ```
 
