@@ -1,0 +1,6 @@
+Minimalist dark tech logo for a developer tool called 
+GroundTruth. A clean geometric symbol combining a 
+signal/radar wave with a document or search icon. 
+Dark background #0d1117, accent color electric blue #3B82F6. 
+Flat design, no gradients, suitable for GitHub README header. 
+Wide format 1280x320px.

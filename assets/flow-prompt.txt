@@ -1,0 +1,5 @@
+Technical diagram illustration showing data flow between 
+a coding agent IDE, a local proxy server labeled GroundTruth, 
+DuckDuckGo search, and an AI API endpoint. 
+Clean dark background, blue accent lines, 
+minimal flat design, developer tool aesthetic.

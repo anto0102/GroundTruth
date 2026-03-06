@@ -1,0 +1,19 @@
+{
+  "name": "groundtruth",
+  "version": "0.1.0",
+  "description": "Lightweight Node.js proxy to intercept API requests from coding agents and inject fresh web context",
+  "type": "module",
+  "bin": {
+    "groundtruth": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "chalk": "^5.3.0",
+    "cheerio": "^1.0.0",
+    "jsdom": "^24.0.0",
+    "node-fetch": "^3.3.2"
+  }
+}

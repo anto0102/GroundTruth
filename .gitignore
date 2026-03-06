@@ -1,0 +1,5 @@
+node_modules
+/.gemini
+/.agent
+/temp-test
+*.log
