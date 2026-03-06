@@ -1,6 +1,6 @@
 {
   "name": "@antodevs/groundtruth",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Lightweight Node.js proxy to intercept API requests from coding agents and inject fresh web context",
   "type": "module",
   "license": "MIT",
