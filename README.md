@@ -2,7 +2,7 @@
 
 # GroundTruth
 
-> Live web context for coding agents. Zero API keys. Zero setup.
+> Zero-configuration context injection layer for LLM-based coding agents.
 
 ![npm](https://img.shields.io/npm/v/groundtruth)
 ![license](https://img.shields.io/npm/l/groundtruth)
@@ -10,95 +10,87 @@
 
 ---
 
-## The Problem
-Every AI coding agent — Claude Code, Antigravity, Cursor — has a knowledge cutoff. Ask about React 19 or SvelteKit 2.5 and you get outdated answers. GroundTruth fixes this.
+## Architecture Overview
+
+Current-generation AI coding assistants (Claude Code, Antigravity, Cursor) suffer from deterministic knowledge cutoffs, rendering them ineffective when working with bleeding-edge frameworks (e.g., SvelteKit 2.5+, React 19). 
+
+**GroundTruth** acts as a transparent middleware layer that resolves this by dynamically injecting real-time, stack-specific documentation directly into the agent's context window prior to inference.
 
 ---
 
-## How it Works
+## Operational Mechanics
 
 ![GroundTruth Data Flow](assets/flow.png)
 
-### Claude Code (proxy mode)
-```
-Your prompt
-    │
-    ▼
-GroundTruth proxy (localhost:8080)
-    │  extracts query → searches DuckDuckGo
-    │  injects fresh docs into system prompt
-    ▼
-api.anthropic.com → Claude
-    │
-    ▼
-Answer with live context ✓
-```
+GroundTruth operates in two distinct execution modes depending on the target agent's architecture:
 
-### Antigravity / Gemini (rules mode)
-```
-GroundTruth (background watcher)
-    │  reads package.json → detects your stack
-    │  searches DuckDuckGo every 5 min
-    │  writes fresh context to ~/.gemini/GEMINI.md
-    ▼
-Antigravity reads GEMINI.md automatically
-    │
-    ▼
-Every prompt has live context ✓
-```
+### 1. Proxy Intercept Mode (Designed for `claude-code`)
+In this mode, GroundTruth provisions a local HTTP proxy that intercepts outbound API calls targeting `api.anthropic.com`. 
+- **Query Extraction**: Parses the user prompt to identify context dependencies.
+- **Data Hydration**: Orchestrates an automated DuckDuckGo search to fetch the most recent documentation.
+- **Payload Mutation**: Mutates the outgoing system prompt to inject the scraped live context before forwarding the request to the Anthropic completion endpoint.
+
+### 2. File Watcher Mode (Designed for `antigravity` / `gemini`)
+For agents that support side-channel context ingestion via dotfiles (like Antigravity Rules), GroundTruth runs as a background daemon.
+- **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph and framework versions.
+- **Automated Polling**: Periodically fetches updated documentation for the detected stack.
+- **Context Synchronization**: Writes the parsed context directly to `~/.gemini/antigravity/rules.md` (or the respective agent's knowledge base directory), ensuring the agent natively reads the fresh context on every invocation.
 
 ---
 
-## Install & Setup
+## Installation & Usage
 
-### Claude Code
+### Usage with Claude Code
 ```bash
-# Start GroundTruth (auto-configures ANTHROPIC_BASE_URL)
+# Initialize GroundTruth in proxy mode (auto-exports ANTHROPIC_BASE_URL)
 npx groundtruth --claude-code
 
-# Start Claude Code in another terminal
+# Execute your agent in a separate TTY
 claude
 ```
-> GroundTruth automatically writes ANTHROPIC_BASE_URL to your shell config (`~/.zshrc`, `~/.bashrc`, `config.fish`). No manual setup needed.
+> **Note:** The daemon automatically mutates your shell environment (`~/.zshrc`, `~/.bashrc`, `config.fish`) to route traffic through the localhost proxy.
 
-### Antigravity / Gemini
+### Usage with Antigravity / Gemini
 ```bash
-# Run from your project root
-cd your-project
+cd /workspace/your-project
+
+# Initialize the daemon in file watcher mode
 npx groundtruth --antigravity
 ```
-> GroundTruth reads your `package.json`, detects your stack, and keeps `~/.gemini/GEMINI.md` updated with fresh docs.
+> **Note:** GroundTruth will continuously poll and sync documentation based on your `package.json` manifest.
 
 ---
 
-## Options
+## CLI Reference
 
-| Flag | Mode | Description |
+| Flag | Mode | Technical Description |
 |------|------|-------------|
-| `--claude-code` | Proxy | Intercepts Anthropic API calls |
-| `--antigravity` | Rules | Writes to GEMINI.md watcher |
-| `--use-package-json` | Both | Use `package.json` as search query |
-| `--port <n>` | Proxy | Custom port (default: `8080`) |
-| `--interval <n>` | Rules | Refresh interval in minutes (default: `5`) |
+| `--claude-code` | Proxy | Initializes HTTP interceptor for Anthropic API payloads. |
+| `--antigravity` | Rules | Initializes background daemon for dotfile synchronization. |
+| `--use-package-json` | Both | Enforces AST/manifest parsing of `package.json` for query generation. |
+| `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
+| `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
 
 ---
 
-## How it Compares
+## Benchmark & Comparison
 
-| | GroundTruth | Brave MCP | Playwright MCP | Firecrawl |
-|-|-------------|-----------|----------------|-----------|
-| API Key required | ✅ No | ❌ Yes | ✅ No | ❌ Yes |
-| Token overhead | ~500 tok | ~800 tok | ~13.000 tok | ~800 tok |
-| Works with Antigravity | ✅ Yes | ❌ No | ❌ No | ❌ No |
-| Bundle size | < 3MB | < 1MB | ~200MB | < 1MB |
-| Auto-configures shell | ✅ Yes | ❌ No | ❌ No | ❌ No |
+GroundTruth is heavily optimized for zero-configuration deployments and minimal token overhead compared to existing MCP (Model Context Protocol) solutions.
+
+| Feature | GroundTruth | Brave MCP | Playwright MCP | Firecrawl |
+|---------|-------------|-----------|----------------|-----------|
+| **Authentication** | None Required | API Key | None Required | API Key |
+| **Token Overhead** | ~500 tokens | ~800 tokens | ~13,000 tokens | ~800 tokens |
+| **Antigravity Support** | Native | Unsupported | Unsupported | Unsupported |
+| **Runtime Footprint** | < 3MB | < 1MB | ~200MB | < 1MB |
+| **Shell Auto-config** | Automated | Manual | Manual | Manual |
 
 ---
 
-## Requirements
-- Node.js 18+
-- Chrome/Chromium installed (for `--claude-code` mode)
-- Antigravity or Claude Code
+## System Requirements
+- Node.js runtime (v18.0.0 or higher)
+- Chromium-based browser (Required specifically for DuckDuckGo scraping in `--claude-code` mode)
+- Supported Agent (Antigravity or Claude Code)
 
 ---
 
