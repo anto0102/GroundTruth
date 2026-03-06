@@ -5,8 +5,8 @@
 > Zero-configuration context injection layer for LLM-based coding agents.
 
 ![npm](https://img.shields.io/npm/v/@antodevs/groundtruth)
-![license](https://img.shields.io/npm/l/@antodevs/groundtruth)
-![node](https://img.shields.io/node/v/@antodevs/groundtruth)
+![github license](https://img.shields.io/github/license/anto0102/GroundTruth)
+![node version](https://img.shields.io/badge/node-%3E%3D18.0.0-blue)
 
 ---
 
