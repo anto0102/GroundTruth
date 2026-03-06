@@ -36,7 +36,9 @@
   },
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "release": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version patch && git push origin main --tags && npm publish",
+    "release:minor": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version minor && git push origin main --tags && npm publish"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
