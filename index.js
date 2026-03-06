@@ -4,7 +4,7 @@
  * @description Entry point runtime groundtruth delegazione CLI o proxy flow logic.
  */
 import { chalk, label } from './src/logger.js';
-import { usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize } from './src/cli.js';
+import { usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize, version } from './src/cli.js';
 import { createServer } from './src/proxy.js';
 import { autoSetEnv } from './src/env.js';
 import { startWatcher } from './src/watcher.js';
@@ -19,7 +19,7 @@ if (antigravityMode) {
     // EADDRINUSE fallback listener fail chain ricorsivo su port shift param logic 
     server.on('error', (e) => (e.code === 'EADDRINUSE' ? startServer(p + 1) : console.error(chalk.red(`Server error: ${e.message}`))));
     server.listen(p, () => {
-      console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray('v0.1.0')}  ${chalk.gray('[claude-code mode]')}\n`);
+      console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[claude-code mode]')}\n`);
       console.log(label('◆', 'proxy', `localhost:${p}`));
       console.log(label('◆', 'anthropic', '/v1/messages'));
       console.log(label('◆', 'gemini', '/v1beta/…'));

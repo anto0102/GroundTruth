@@ -3,6 +3,9 @@
  * @description Parsing degli argomenti CLI process.argv e logica help screen.
  */
 import { chalk } from './logger.js';
+import { createRequire } from 'module';
+
+const { version } = createRequire(import.meta.url)('../package.json');
 
 // ─── Arg Parsers ─────────────────────────────────────
 
@@ -14,7 +17,7 @@ const claudeCodeMode = args.includes('--claude-code');
 // Stop immediato se nessun mode definito
 if (!antigravityMode && !claudeCodeMode) {
     console.log();
-    console.log(`  ${chalk.white.bold('GroundTruth')}  ${chalk.gray('v0.1.0')}`);
+    console.log(`  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}`);
     console.log();
     console.log(`  Usage:`);
     console.log(`    groundtruth --claude-code       proxy mode (Claude Code)`);
@@ -52,4 +55,4 @@ const batchSize = batchSizeIndex !== -1
     ? Math.max(2, Math.min(parseInt(args[batchSizeIndex + 1]) || 3, 5))
     : 3;
 
-export { args, usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize };
+export { args, usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize, version };

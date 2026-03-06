@@ -121,7 +121,6 @@ GroundTruth is heavily optimized for zero-configuration deployments and minimal 
 
 ## System Requirements
 - Node.js runtime (v18.0.0 or higher)
-- Chromium-based browser (Required specifically for DuckDuckGo scraping in `--claude-code` mode)
 - Supported Agent (Antigravity or Claude Code)
 
 ---

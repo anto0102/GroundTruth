@@ -8,6 +8,7 @@ import { webSearch } from './search.js';
 import { readPackageDeps, buildQuery, groupIntoBatches, batchHash } from './packages.js';
 import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
 import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
+import { version } from './cli.js';
 
 // ─── Scheduler Watcher Instance ──────────────────────
 
@@ -20,7 +21,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     const skillFilePretty = '.gemini/GEMINI.md';
 
     console.log();
-    console.log(`  ${chalk.white.bold('GroundTruth')}  ${chalk.gray('v0.1.0')}  ${chalk.gray('[antigravity mode]')}`);
+    console.log(`  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[antigravity mode]')}`);
     console.log();
     console.log(label('◆', 'global', globalSkillFilePretty));
     console.log(label('◆', 'workspace', skillFilePretty));
