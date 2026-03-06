@@ -1,27 +1,20 @@
 /**
  * @module watcher
- * @description Timer poll di Antigravity update locale skill inject doc rules.
+ * @description Timer poll di Antigravity update locale skill inject doc rules, ora con caching a batch blocchi separati.
  */
+import os from 'os';
+import path from 'path';
 import { webSearch } from './search.js';
-import { readPackageDeps, buildQuery } from './packages.js';
-import { updateGeminiFiles } from './inject.js';
-import { chalk, label, log, LOG_WARN } from './logger.js';
+import { readPackageDeps, buildQuery, groupIntoBatches, batchHash } from './packages.js';
+import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
+import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 
 // ─── Scheduler Watcher Instance ──────────────────────
 
-/**
- * @description Bootstrap del ciclo event intervallato update timer markdown file
- * @param {Object}  opts                 - Param object setup watcher args setup
- * @param {number}  opts.intervalMinutes - Configurato timer minuti cli arg
- * @param {boolean} opts.usePackageJson  - Usa package json legacy arg object compat
- * @param {number}  opts.maxPackages     - Maximum allowed packages parsing cap object query config
- */
-export function startWatcher({ intervalMinutes, usePackageJson, maxPackages }) {
-    const depEntries = readPackageDeps(maxPackages);
-    const stackStr = depEntries
-        ? depEntries.join(', ')
-        : 'javascript web development';
-    const query = buildQuery(depEntries);
+export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
+    const homeDir = os.homedir();
+    const globalPath = path.join(homeDir, '.gemini', 'GEMINI.md');
+    const workspacePath = path.join(process.cwd(), '.gemini', 'GEMINI.md');
 
     const globalSkillFilePretty = '~/.gemini/GEMINI.md';
     const skillFilePretty = '.gemini/GEMINI.md';
@@ -31,85 +24,91 @@ export function startWatcher({ intervalMinutes, usePackageJson, maxPackages }) {
     console.log();
     console.log(label('◆', 'global', globalSkillFilePretty));
     console.log(label('◆', 'workspace', skillFilePretty));
-    console.log(label('◆', 'stack', stackStr));
     console.log(label('◆', 'interval', `every ${intervalMinutes} min`));
-    console.log(label('◆', 'packages', `max ${maxPackages} targets`));
+    console.log(label('◆', 'batch_size', `chunk limit ${batchSize}`));
     console.log(label('◆', 'context', 'DuckDuckGo → live'));
     console.log();
     console.log(`  ${chalk.cyan('✻')} Running. Antigravity will load context automatically.`);
     console.log();
 
-    let previousDepsKey = null;
-    let previousContent = null;
+    const previousBatchHashes = new Map();
 
     async function updateSkill() {
-        // Evaluate logic dependencies comparison object changes state ref skip updates config
-        const currentDeps = readPackageDeps(maxPackages);
-        const currentKey = JSON.stringify(currentDeps);
-
-        if (currentKey === previousDepsKey) {
-            log(LOG_REFRESH, chalk.gray, chalk.white('no changes detected') + `  →  ${chalk.gray('skipped')}`);
-            return; // salta questo ciclo
+        const deps = readPackageDeps(); // tutte le deps
+        if (!deps || deps.length === 0) {
+            return; // fall back to something default or just skip 
         }
 
-        if (previousDepsKey !== null) {
-            const prevStack = JSON.parse(previousDepsKey) || [];
-            const currStack = currentDeps || [];
-            const added = currStack.filter(d => !prevStack.includes(d));
-            const removed = prevStack.filter(d => !currStack.includes(d));
+        const batches = groupIntoBatches(deps, batchSize);
+        const activeBlockIds = new Set();
+        let updatedCount = 0;
+        let skippedCount = 0;
+        let failedCount = 0;
 
-            const diffParts = [];
-            if (added.length) diffParts.push(chalk.green(`+${added.join(', +')}`));
-            if (removed.length) diffParts.push(chalk.red(`-${removed.join(', -')}`));
+        await Promise.all(batches.map(async (batch) => {
+            const blockId = batchHash(batch);
+            activeBlockIds.add(blockId);
 
-            log(LOG_REFRESH, chalk.cyan, chalk.white('deps changed') + ` (${diffParts.join(', ')})  →  ${chalk.cyan('updating')}`);
-        }
-        previousDepsKey = currentKey;
-
-        // Re-calculate stackStr/query string parameters
-        const stackStr = currentDeps ? currentDeps.join(', ') : 'javascript web development';
-        const query = buildQuery(currentDeps);
-
-        const now = new Date();
-        const nextTs = new Date(now.getTime() + intervalMinutes * 60 * 1000);
-        try {
-            const { results, pageText } = await webSearch(query, false);
-            const firstUrl = results[0]?.url || '';
-
-            let globalMd = `## Live Web Context (${now.toLocaleString('it-IT')})\n`;
-            globalMd += `Stack: ${stackStr}\n`;
-            if (results.length > 0) {
-                globalMd += `Source: ${results[0].url}\n`;
-                globalMd += `${results[0].snippet.slice(0, 300)}\n`;
+            const currentHash = batchHash(batch);
+            if (previousBatchHashes.get(blockId) === currentHash) {
+                // batch invariato → skip
+                skippedCount++;
+                return;
             }
 
-            let md = `## Live Web Context — ${now.toLocaleString('it-IT')}\n`;
-            md += `**Stack rilevato:** ${stackStr}\n`;
-            md += `**Fonte:** DuckDuckGo → ${firstUrl}\n\n`;
-            md += `### Risultati ricerca: "${query}"\n\n`;
+            // batch cambiato o nuovo → cerca
+            const query = buildQuery(batch);
+            try {
+                const { results, pageText } = await webSearch(query, false);
 
-            for (const r of results) {
-                md += `#### ${r.title}\n${r.snippet} — ${r.url}\n\n`;
+                // quality check
+                const badSignals = ['403', 'captcha', 'blocked', 'access denied', 'forbidden'];
+                const isBad = !pageText || pageText.length < 200 || badSignals.some(s => pageText.toLowerCase().includes(s));
+                if (isBad && previousBatchHashes.has(blockId)) {
+                    log(LOG_WARN, chalk.yellow, `low quality result for block ${blockId} → keeping previous context`);
+                    failedCount++;
+                    return; // non sovrascrivere
+                }
+
+                const now = new Date();
+                const nowStr = now.toLocaleString('it-IT');
+                const batchTitle = batch.map(b => b.split(' ')[0]).join(', '); // extracting base name
+
+                let globalMd = `## Live Context — ${batchTitle} (${nowStr})\n`;
+                globalMd += `**Query:** ${query}\n\n`;
+                if (results.length > 0) {
+                    globalMd += `### ${results[0].title}\n`;
+                    globalMd += `${results[0].snippet.slice(0, 300)} — ${results[0].url}\n`;
+                }
+
+                let md = `## Live Context — ${batchTitle} (${nowStr})\n`;
+                md += `**Query:** ${query}\n\n`;
+                for (const r of results) {
+                    md += `### ${r.title}\n${r.snippet} — ${r.url}\n\n`;
+                }
+                if (pageText) {
+                    md += `FULL TEXT: ${pageText}\n`;
+                }
+
+                await updateGeminiFiles([{
+                    blockId,
+                    globalContent: globalMd,
+                    workspaceContent: md
+                }]);
+
+                previousBatchHashes.set(blockId, currentHash);
+                updatedCount++;
+                log(LOG_REFRESH, chalk.cyan, `block ${blockId} updated → ${batch.join(', ')}`);
+            } catch (e) {
+                failedCount++;
+                log(LOG_WARN, chalk.yellow, `block ${blockId} fetch failed → keeping previous`);
             }
-            if (pageText) {
-                md += `### Documentazione completa\n${pageText}\n\n`;
-            }
-            md += `*Aggiornato: ${now.toISOString()} | Prossimo aggiornamento: ${nextTs.toISOString()}*\n`;
+        }));
 
-            const badSignals = ['403', 'captcha', 'blocked', 'access denied', 'forbidden'];
-            const isBad = !pageText || pageText.length < 200 || badSignals.some(s => pageText.toLowerCase().includes(s));
+        removeStaleBlocks(globalPath, activeBlockIds);
+        removeStaleBlocks(workspacePath, activeBlockIds);
 
-            if (isBad && previousContent) {
-                log(LOG_WARN, chalk.yellow, chalk.white('low quality result') + `  →  ${chalk.yellow('keeping previous context')}`);
-                return; // non sovrascrivere
-            }
-
-            previousContent = { globalContent: globalMd, workspaceContent: md };
-
-            updateGeminiFiles(globalMd, md, stackStr, results.length);
-        } catch (e) {
-            log(LOG_WARN, chalk.yellow, chalk.white('web fetch failed') + `  →  ${chalk.yellow(e.message)}`);
-        }
+        log(LOG_REFRESH, chalk.gray, `cycle done → ${activeBlockIds.size} blocks active, ${updatedCount} updated, ${skippedCount} skipped, ${failedCount} errors`);
     }
 
     // Lancio a startup immediato

@@ -1,27 +1,25 @@
 /**
  * @module packages
- * @description Utilita per estrarre il package array e generare queries LLM.
+ * @description Utilita per estrarre il package array e generare queries LLM a blocchi.
  */
 import fs from 'fs';
 import path from 'path';
+import { createHash } from 'crypto';
 
 // ─── Logica Dipendenze ───────────────────────────────
 
 /**
  * @description Analizza deps di system locali escludendo packages non rilevanti
- * @param {number} maxPackages - Numero massimo dipendenze limit da includere
  * @returns {Array|null} Array strings stack locale o null in fallback error
  */
-export function readPackageDeps(maxPackages = 3) {
+export function readPackageDeps() {
     try {
         const pkgPath = path.resolve(process.cwd(), 'package.json');
         if (!fs.existsSync(pkgPath)) return null;
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
-        // Rimuoviamo adapter ed utilities varie per limitare queries a nomi chiave
         const excludeList = ["plugin", "adapter", "check", "eslint", "prettier", "vite", "rollup", "webpack", "babel"];
 
-        // Filtro pulizia mapping package json entries
         const filterAndFormat = (depsObj) => {
             if (!depsObj) return [];
             return Object.entries(depsObj)
@@ -36,15 +34,39 @@ export function readPackageDeps(maxPackages = 3) {
         };
 
         let selected = filterAndFormat(pkg.dependencies);
-        if (selected.length < maxPackages) {
-            selected = selected.concat(filterAndFormat(pkg.devDependencies));
-        }
-        selected = selected.slice(0, maxPackages); // Capped at parameter max
+        selected = selected.concat(filterAndFormat(pkg.devDependencies));
 
         return selected.length > 0 ? selected : null;
     } catch (_) {
         return null;
     }
+}
+
+/**
+ * @description Raggruppa l'array delle dipendenze in chunk di dimensione fissa.
+ * @param {Array}  deps      - Array completo formattato
+ * @param {number} batchSize - Dimensione forzata dei chuncks
+ * @returns {Array<Array>} Array bidimensionale aggregato a batches 
+ */
+export function groupIntoBatches(deps, batchSize = 3) {
+    if (!deps || !deps.length) return [];
+    const batches = [];
+    for (let i = 0; i < deps.length; i += batchSize) {
+        batches.push(deps.slice(i, i + batchSize));
+    }
+    return batches;
+}
+
+/**
+ * @description Genera crypto hash string id da chunk object signature elements array
+ * @param {Array} batch - chunk elements content package string names 
+ * @returns {string} short 8 character identifier digest
+ */
+export function batchHash(batch) {
+    return createHash('md5')
+        .update(batch.join(','))
+        .digest('hex')
+        .slice(0, 8);
 }
 
 /**

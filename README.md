@@ -62,9 +62,10 @@ flowchart TD
     class GT,Agent core;
 ```
 
-- **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph and framework versions.
-- **Automated Polling**: Periodically fetches updated documentation for the detected stack.
-- **Context Synchronization**: Writes the parsed context directly to `~/.gemini/antigravity/rules.md` (or the respective agent's knowledge base directory), ensuring the agent natively reads the fresh context on every invocation.
+- **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph.
+- **Intelligent Chunking**: Groups the filtered dependencies in configurable size batches (default 3) and uniquely hashes them to avoid redundant context-fetching loops unless changes are detected.
+- **Automated Polling**: Periodically fetches updated documentation for the detected stack chunks in parallel.
+- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/antigravity/rules.md`, natively discarding stale contexts whenever dependencies are removed without affecting existing ones.
 
 ---
 
@@ -100,7 +101,7 @@ npx groundtruth --antigravity
 | `--use-package-json` | Both | Enforces AST/manifest parsing of `package.json` for query generation. |
 | `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
 | `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
-| `--max-packages <n>` | Rules | Limits the maximum amount of packages queried on DuckDuckGo (Default: `3`, Max: `6`). |
+| `--batch-size <n>` | Rules | Changes the amount of dependencies per query chunk for block fetching (Default: `3`, Min: `2`, Max: `5`). |
 
 ---
 

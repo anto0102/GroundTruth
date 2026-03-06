@@ -4,7 +4,7 @@
  * @description Entry point runtime groundtruth delegazione CLI o proxy flow logic.
  */
 import { chalk, label } from './src/logger.js';
-import { usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, maxPackages } from './src/cli.js';
+import { usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize } from './src/cli.js';
 import { createServer } from './src/proxy.js';
 import { autoSetEnv } from './src/env.js';
 import { startWatcher } from './src/watcher.js';
@@ -12,7 +12,7 @@ import { startWatcher } from './src/watcher.js';
 // ─── Dispatcher start app logic ──────────────────────
 
 if (antigravityMode) {
-  startWatcher({ intervalMinutes, usePackageJson, maxPackages });
+  startWatcher({ intervalMinutes, usePackageJson, batchSize });
 } else if (claudeCodeMode) {
   const server = createServer(usePackageJson);
   const startServer = (p) => {

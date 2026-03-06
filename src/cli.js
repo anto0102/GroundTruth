@@ -24,7 +24,7 @@ if (!antigravityMode && !claudeCodeMode) {
     console.log(`    --use-package-json   use package.json as search query`);
     console.log(`    --port <n>           custom port, default 8080 (claude-code only)`);
     console.log(`    --interval <n>       refresh in minutes, default 5 (antigravity only)`);
-    console.log(`    --max-packages <n>   packages in query (default: 3, max: 6)`);
+    console.log(`    --batch-size <n>     deps per search batch (default: 3)`);
     console.log();
     console.log(`  Docs:`);
     console.log(`    Claude Code   →  export ANTHROPIC_BASE_URL=http://localhost:8080`);
@@ -47,9 +47,9 @@ if (intervalArgIndex !== -1 && args[intervalArgIndex + 1]) {
     intervalMinutes = parseInt(args[intervalArgIndex + 1], 10) || 5;
 }
 
-const maxPkgIndex = args.indexOf('--max-packages');
-const maxPackages = maxPkgIndex !== -1
-    ? Math.min(parseInt(args[maxPkgIndex + 1]) || 3, 6)
+const batchSizeIndex = args.indexOf('--batch-size');
+const batchSize = batchSizeIndex !== -1
+    ? Math.max(2, Math.min(parseInt(args[batchSizeIndex + 1]) || 3, 5))
     : 3;
 
-export { args, usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, maxPackages };
+export { args, usePackageJson, antigravityMode, claudeCodeMode, port, intervalMinutes, batchSize };
