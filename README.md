@@ -17,6 +17,8 @@ Every AI coding agent — Claude Code, Antigravity, Cursor — has a knowledge c
 
 ## How it Works
 
+![GroundTruth Data Flow](assets/flow.png)
+
 ### Claude Code (proxy mode)
 ```
 Your prompt
