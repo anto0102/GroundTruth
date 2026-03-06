@@ -18,20 +18,50 @@ Current-generation AI coding assistants (Claude Code, Antigravity, Cursor) suffe
 
 ---
 
-## Operational Mechanics
+## Architecture & Operational Mechanics
 
-![GroundTruth Data Flow](assets/flow.png)
-
-GroundTruth operates in two distinct execution modes depending on the target agent's architecture:
+GroundTruth operates in two distinct execution modes depending on the target agent's architecture. 
 
 ### 1. Proxy Intercept Mode (Designed for `claude-code`)
-In this mode, GroundTruth provisions a local HTTP proxy that intercepts outbound API calls targeting `api.anthropic.com`. 
+
+In this mode, GroundTruth provisions a local HTTP proxy that intercepts outbound API calls targeting Anthropic's endpoints.
+
+```mermaid
+sequenceDiagram
+    participant Agent as Claude Code
+    participant Proxy as GroundTruth Proxy
+    participant Search as DuckDuckGo
+    participant API as Anthropic API
+
+    Agent->>Proxy: Send Prompt (POST /v1/messages)
+    Proxy->>Search: Extract stack/query & scrape live docs
+    Search-->>Proxy: Return real-time web context
+    Note over Proxy: Injects live context<br/>into System Prompt
+    Proxy->>API: Forward mutated request
+    API-->>Agent: Return completion with fresh knowledge
+```
+
 - **Query Extraction**: Parses the user prompt to identify context dependencies.
 - **Data Hydration**: Orchestrates an automated DuckDuckGo search to fetch the most recent documentation.
 - **Payload Mutation**: Mutates the outgoing system prompt to inject the scraped live context before forwarding the request to the Anthropic completion endpoint.
 
 ### 2. File Watcher Mode (Designed for `antigravity` / `gemini`)
+
 For agents that support side-channel context ingestion via dotfiles (like Antigravity Rules), GroundTruth runs as a background daemon.
+
+```mermaid
+flowchart TD
+    pkg([package.json]) -->|Parse Dependencies| GT{GroundTruth Watcher}
+    GT -->|Search Stack Queries| DDG[(DuckDuckGo)]
+    DDG -->|Return Live Docs| GT
+    GT -->|Sync periodically| File[~/.gemini/antigravity/rules.md]
+    File -->|Auto-loaded| Agent(Antigravity Agent)
+    Agent -->|Execute| Prompt[Prompt with Fresh Context]
+
+    classDef core fill:#3B82F6,stroke:#fff,stroke-width:2px,color:#fff;
+    class GT,Agent core;
+```
+
 - **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph and framework versions.
 - **Automated Polling**: Periodically fetches updated documentation for the detected stack.
 - **Context Synchronization**: Writes the parsed context directly to `~/.gemini/antigravity/rules.md` (or the respective agent's knowledge base directory), ensuring the agent natively reads the fresh context on every invocation.
