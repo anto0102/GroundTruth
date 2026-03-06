@@ -4,9 +4,30 @@
 
 > Zero-configuration context injection layer for LLM-based coding agents.
 
-![npm](https://img.shields.io/npm/v/groundtruth)
-![license](https://img.shields.io/npm/l/groundtruth)
-![node](https://img.shields.io/node/v/groundtruth)
+![npm](https://img.shields.io/npm/v/@antodevs/groundtruth)
+![license](https://img.shields.io/npm/l/@antodevs/groundtruth)
+![node](https://img.shields.io/node/v/@antodevs/groundtruth)
+
+---
+
+## Quick Start (No Install)
+
+Run GroundTruth instantly via `npx`:
+
+```bash
+# Antigravity Mode (Recommended for AI Watcher)
+npx @antodevs/groundtruth --antigravity
+
+# Proxy Mode (For Claude Code integration)
+npx @antodevs/groundtruth --port 8080
+```
+
+## Installation
+
+To install globally:
+```bash
+npm install -g @antodevs/groundtruth
+```
 
 ---
 
