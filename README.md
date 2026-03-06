@@ -1,4 +1,4 @@
-![GroundTruth Banner](assets/banner.png)
+![GroundTruth Banner](assets/banner.png?v=2)
 
 # GroundTruth
 
