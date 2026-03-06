@@ -1,0 +1,118 @@
+name: GroundTruth
+version: 0.1.0
+description: |
+  GroundTruth is a zero-configuration, transparent middleware context injection layer.
+  It is designed to bridge the deterministic knowledge cutoff gap of LLM-based coding agents 
+  (such as Claude Code or Antigravity) by dynamically fetching and injecting live, 
+  dependency-specific documentation right before inference or via out-of-band rule files.
+
+architecture:
+  modes:
+    - name: Proxy Intercept Mode
+      alias: claude-code
+      description: |
+        Operates as a local HTTP reverse-proxy interceptor that captures outgoing API payloads 
+        targeting Anthropic or Google Gemini endpoints, mutating them in transit.
+      target_endpoints:
+        - "https://api.anthropic.com/v1/messages"
+        - "https://generativelanguage.googleapis.com/v1beta/models/*"
+      flow:
+        1: "Listen on localhost port (default: 8080) and capture POST requests."
+        2: "Extract the last user message from the JSON body (supports `messages` array for Anthropic and `contents` array for Gemini)."
+        3: "Determine search query: use `--use-package-json` AST parsing, or fallback to the user message text."
+        4: "Scrape DuckDuckGo concurrently to retrieve live context (title, snippet, Readability-parsed text up to 4000 chars)."
+        5: "Mutate the `system` instruction prompt in the JSON payload by appending the live context block."
+        6: "Forward the modified request to the actual LLM provider, streaming the response back to the client."
+      components:
+        - src/proxy.js
+
+    - name: File Watcher Mode
+      alias: antigravity
+      description: |
+        Runs as a persistent background daemon. It polls the local project's dependencies, 
+        fetches up-to-date documentation, and generates synchronized knowledge base dotfiles 
+        (`GEMINI.md`) that the agent natively reads on invocation.
+      flow:
+        1: "Parses `package.json` dependencies and filters out build/tooling packages (e.g., eslint, vite, adapter)."
+        2: "Groups the filtered dependencies into chunks (batching) of configurable size (default: 3, max: 5) using `groupIntoBatches`."
+        3: "Hashes each dependency chunk (`batchHash` md5 sliced to 8 chars) to uniquely identify rule blocks and track state."
+        4: "Checks previous state to avoid redundant network fetches if the batch hasn't changed (`previousDepsKey` mapping)."
+        5: "Fetches live DuckDuckGo results per batch asynchronously, filtering out low-quality pages (403, captcha, < 200 chars)."
+        6: "Injects distinct dependency rule blocks bounded by `<!-- groundtruth:block-{hash}:start/end -->` directly inside `~/.gemini/GEMINI.md` (global) and `./.gemini/GEMINI.md` (workspace)."
+        7: "Garbage-collects stale blocks (`removeStaleBlocks`) belonging to evicted or resolved dependencies by regex matching active block IDs."
+      components:
+        - src/watcher.js
+        - src/inject.js
+
+core_modules:
+  - name: cli.js
+    responsibilities: 
+      - "Process `process.argv` argument parsing."
+      - "Validation and defaulting of arguments (`--port`, `--interval`, `--batch-size`)."
+      - "Help/Docs Screen rendering and early exit conditions."
+  
+  - name: search.js
+    responsibilities: 
+      - "DuckDuckGo HTML scraping using `cheerio`."
+      - "URL resolution from DuckDuckGo's `uddg` tracking links."
+      - "User-Agent rotation to mitigate scraping blocks."
+      - "Network Request Retry implementation with exponential/static backoff."
+      - "In-memory caching (`CACHE_TTL` = 5 minutes)."
+      - "Page content extraction using `jsdom` and Mozilla's `Readability`."
+  
+  - name: packages.js
+    responsibilities: 
+      - "Read local Node modules context (`package.json`)."
+      - "Clean semantic versions (e.g., `^1.2.3` -> `1.2`)."
+      - "Filter out non-informative tooling (`vite`, `prettier`, `eslint`)."
+      - "Group dependencies into manageable batches (`groupIntoBatches`)."
+      - "Generate deterministic MD5 identifiers per batch for block management (`batchHash`)."
+      - "Construct search queries based on dependency batches plus temporal identifiers (`latest 2026`)."
+  
+  - name: logger.js
+    responsibilities: 
+      - "Chalk-driven aesthetic terminal formatting."
+      - "Centralized status symbolizing constants (✓, ⚠, ⚡, ↻, ◆, ✻)."
+      - "Timestamp generation mapped to `it-IT` locale."
+  
+  - name: env.js
+    responsibilities: 
+      - "Shell configuration auto-instrumentation (`.zshrc`, `.bashrc`, `.bash_profile`, `config.fish`)."
+      - "Exporting `ANTHROPIC_BASE_URL` to route CLI tools (like Claude Code) through the proxy."
+      - "Cross-Platform Environment Override (Bypassing Windows systems safely)."
+  
+  - name: inject.js
+    responsibilities: 
+      - "File I/O operations for `GEMINI.md` in both `$HOME` and `$CWD`."
+      - "Regex-based block injection using exact start/end bounds matching."
+      - "Stale block eviction via `removeStaleBlocks`."
+
+dependencies:
+  runtime: "Node.js >= 18.0.0 (uses ES Modules)"
+  built_ins: 
+    - fs
+    - path
+    - os
+    - http
+    - https
+    - crypto
+  third_party:
+    - chalk: "^5.3.0" # Terminal styling
+    - cheerio: "^1.0.0" # Fast HTML parsing for DDG results
+    - jsdom: "^24.0.0" # DOM emulation for Mozilla Readability
+    - node-fetch: "^3.3.2" # WHATWG Fetch API polyfill for Node
+    - "@mozilla/readability": "^0.5.0" # Main content extraction
+
+mechanics:
+  caching_and_eviction:
+    - "Search level caching: Runtime searches are cached for 5 minutes (`CACHE_TTL`), matching identical queries to avoid redundant network transit."
+    - "Watcher level caching: the daemon uses a Map tracking `blockId` -> `JSON.stringify(batch)`. If the hash signature matches across cycles, the network layer is skipped."
+  quality_assurance:
+    - "Content verification: Extracted text is sanitized and evaluated. If a page returns < 200 characters, or contains indicators of bot protection (e.g., '403', 'captcha', 'access denied'), the result is flagged."
+    - "Fallback mechanism: If a result is flagged as low-quality, the watcher rolls back and retains the successfully injected markdown block from the previous cycle."
+  network_resilience:
+    - "Timeouts: All outbound `node-fetch` requests strictly adhere to a 5-second `AbortSignal.timeout(5000)`."
+    - "Retries: A single 1-second delay retry is implemented in `search.js` if the primary DDG request fails, accounting for aggressive rate-limiting."
+  shell_integration:
+    - "Darwin/Linux-first: Windows OS (`win32`) skips autoconfig cleanly."
+    - "Fish Shell paths uniquely utilize `set -gx` constructs unlike standard Bash/Zsh `export` syntax, appending recursively or mutating existing assignments."
