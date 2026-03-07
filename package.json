@@ -38,8 +38,8 @@
     "start": "node dist/index.js",
     "dev": "node --watch index.js",
     "build": "tsup",
-    "release": "npm run build && git add . && git commit -m \"chore: auto-commit before release\" || true && npm version patch && git push origin main --tags && npm publish",
-    "release:minor": "npm run build && git add . && git commit -m \"chore: auto-commit before release\" || true && npm version minor && git push origin main --tags && npm publish"
+    "release": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version patch && npm run build && git push origin main --tags && npm publish",
+    "release:minor": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version minor && npm run build && git push origin main --tags && npm publish"
   },
   "devDependencies": {
     "@clack/prompts": "^1.1.0",
