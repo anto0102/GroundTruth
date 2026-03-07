@@ -45,7 +45,7 @@ export async function loadConfig() {
         const parsed = JSON.parse(raw);
 
         return {
-            maxTokens: clamp(parsed.maxTokens ?? DEFAULTS.maxTokens, 500, 8000),
+            maxTokens: clamp(parsed.maxTokens || DEFAULTS.maxTokens, 500, 8000),
             quality: ['low', 'medium', 'high'].includes(parsed.quality) ? parsed.quality : DEFAULTS.quality,
             verbose: typeof parsed.verbose === 'boolean' ? parsed.verbose : DEFAULTS.verbose,
             sources: Array.isArray(parsed.sources) ? parsed.sources.filter(s => s && s.url) : DEFAULTS.sources,

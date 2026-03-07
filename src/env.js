@@ -23,13 +23,12 @@ export async function autoSetEnv(p) {
         if (process.env.ANTHROPIC_BASE_URL === targetUrl) return;
 
         const homeDir = os.homedir();
-        // Test exist pattern specifico shell config di fish locale
-        const isFish = process.env.SHELL?.includes('fish') || existsSync(`${homeDir}/.config/fish/config.fish`);
+        const fishConfigFile = path.join(homeDir, '.config', 'fish', 'config.fish');
+        const isFish = process.env.SHELL?.includes('fish') || existsSync(fishConfigFile);
         let foundAny = false;
         const modifiedFiles = [];
 
         if (isFish) {
-            const fishConfigFile = path.join(homeDir, '.config', 'fish', 'config.fish');
             await fs.mkdir(path.dirname(fishConfigFile), { recursive: true });
             foundAny = true;
             try {

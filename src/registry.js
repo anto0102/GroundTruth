@@ -3,10 +3,12 @@
  * @description Interroga il Cloudflare Worker (Remote Registry) per risolvere URL docs ufficiali.
  */
 
+import { LRUCache } from './cache.js';
+
 const REGISTRY_API_URL = 'https://groundtruth-registry.antony-flex01.workers.dev/lookup';
 
-// Cache in memoria per evitare query multiple allo stesso endpoint durante lo stesso run del watcher
-const lookupCache = new Map();
+// Cache in memoria con LRU per evitare query multiple allo stesso endpoint
+const registryCache = new LRUCache({ max: 1000, ttl: 60 * 60 * 1000 });
 
 /**
  * @description Interroga asincronamente l'API cloudflare per cercare URL docs nel registry remoto
@@ -24,35 +26,35 @@ export async function lookupRegistryUrl(depName) {
 
 
     // Check hit in memoria (ritorna subito)
-    if (lookupCache.has(name)) {
-        return lookupCache.get(name);
-    }
+    const cached = registryCache.get(name);
+    if (cached !== undefined) return cached;
 
     try {
         // Fetch asincrono con timeout stretto per evitare latenze di fallback
         const res = await fetch(`${REGISTRY_API_URL}?pkg=${encodeURIComponent(name)}`, {
-            signal: AbortSignal.timeout(1500), // Max 1.5s aspetta il Cloudflare worker
+            signal: AbortSignal.timeout(1500),
             headers: {
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'X-GroundTruth-Key': process.env.GROUNDTRUTH_REGISTRY_KEY || ''
             }
         });
 
         if (res.ok) {
             const data = await res.json();
             if (data && data.found && data.url) {
-                lookupCache.set(name, data.url); // Cache hit success
+                registryCache.set(name, data.url); // Cache hit success
                 return data.url;
             }
         }
 
         // Se l'API restituisce 404/not found
-        lookupCache.set(name, null); // Cache negative (così non rifacciamo network)
+        registryCache.set(name, null); // Cache negative (così non rifacciamo network)
         return null;
 
     } catch (err) {
         // Failover silente! (timeout o worker rotto). Se Cloudflare fallisce, 
         // noi non diamo errore all'utente ma facciamo DDG search fallback locale naturale.
-        lookupCache.set(name, null);
+        registryCache.set(name, null);
         return null;
     }
 }

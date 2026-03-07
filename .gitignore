@@ -4,4 +4,9 @@ node_modules
 /.agents
 /temp-test
 codice1.2.txt
+codice2.2.txt
+groundtruth-bug-report (1).md
+specification.yaml
+Workerdb.js
+workerupdater.js
 *.log

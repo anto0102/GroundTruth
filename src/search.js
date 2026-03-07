@@ -7,7 +7,6 @@ import { Readability } from '@mozilla/readability';
 import { DOMParser } from 'linkedom';
 import { searchCache } from './cache.js';
 import { CircuitBreaker } from './circuit-breaker.js';
-import { httpAgent, httpsAgent } from './http-agent.js';
 import { sanitizeWebContent } from './sanitize.js';
 import { lookupRegistryUrl } from './registry.js';
 
@@ -47,7 +46,7 @@ export async function fetchPageContent(url, userAgent, opts = {}) {
             const text = await jinaRes.text();
             if (text && text.length > 200) {
                 if (verbose) console.log(`    [jina] ✓ ${url} → ${text.length} chars`);
-                return sanitizeWebContent(text.replace(/\s+/g, ' '), maxLen);
+                return sanitizeWebContent(text, maxLen);
             }
         }
     } catch (_) {
@@ -69,10 +68,7 @@ export async function fetchPageContent(url, userAgent, opts = {}) {
             } catch (_) {
                 text = document.body?.textContent || '';
             }
-            if (text) {
-                if (verbose) console.log(`    [readability] ✓ ${url} → ${text.length} chars`);
-                return sanitizeWebContent(text.replace(/\s+/g, ' '), maxLen);
-            }
+            return sanitizeWebContent(text, maxLen);
         }
     } catch (_) { }
 

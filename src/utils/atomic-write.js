@@ -49,6 +49,7 @@ export async function atomicWrite(filePath, content, options = {}) {
             }
         }
 
+        await unlink(tempFile).catch(() => { });
         return { success: true, backupPath: backup ? backupPath : null };
     } catch (err) {
         // Cleanup temp in caso di errore catch

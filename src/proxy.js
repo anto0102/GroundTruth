@@ -9,6 +9,8 @@ import { readPackageDeps, buildQuery } from './packages.js';
 import { chalk, log, LOG_WARN, LOG_BOLT } from './logger.js';
 import { httpsAgent } from './http-agent.js';
 import { sanitizeWebContent } from './sanitize.js';
+import { watch } from 'fs';
+import path from 'path';
 import { maxTokens, qualitySettings, verbose } from './cli.js';
 
 // ─── HTTP Node server daemon ─────────────────────────
@@ -20,12 +22,32 @@ import { maxTokens, qualitySettings, verbose } from './cli.js';
  */
 export async function createServer(usePackageJson) {
     let packageQueryCache = null;
+    let cacheStale = true;
+
     if (usePackageJson) {
         const depEntries = await readPackageDeps();
-        if (depEntries) packageQueryCache = buildQuery(depEntries);
+        if (depEntries) {
+            packageQueryCache = buildQuery(depEntries);
+            cacheStale = false;
+        }
+
+        const pkgPath = path.resolve(process.cwd(), 'package.json');
+        try {
+            watch(pkgPath, { persistent: false }, () => {
+                cacheStale = true;
+                log(LOG_REFRESH, chalk.cyan, chalk.white('package.json changed — cache invalidated'));
+            });
+        } catch (_) { }
     }
 
     const server = http.createServer(async (req, res) => {
+        if (usePackageJson && cacheStale) {
+            const depEntries = await readPackageDeps();
+            if (depEntries) {
+                packageQueryCache = buildQuery(depEntries);
+                cacheStale = false;
+            }
+        }
         if (req.method !== 'POST') { res.writeHead(404); res.end(); return; }
 
         let protocol = null;
@@ -95,7 +117,7 @@ export async function createServer(usePackageJson) {
             try {
                 if (!query || query.trim() === String(new Date().getFullYear())) throw new Error('Empty query');
                 // parallel load in proxy app process to boost response load
-                const { results, pageText } = await webSearch(query, true, {
+                const { results, pageText } = await webSearch(query, false, {
                     ddgResults: qualitySettings.ddgResults,
                     maxLen: qualitySettings.charsPerPage,
                     jinaTimeout: qualitySettings.jinaTimeout,
@@ -155,7 +177,13 @@ export async function createServer(usePackageJson) {
             headers['content-length'] = Buffer.byteLength(reqBodyStr);
 
             const proxyReq = https.request(targetUrl, { method: req.method, headers, agent: httpsAgent }, (proxyRes) => {
-                res.writeHead(proxyRes.statusCode, proxyRes.headers);
+                const responseHeaders = { ...proxyRes.headers };
+                delete responseHeaders['content-security-policy'];
+                delete responseHeaders['x-content-type-options'];
+                delete responseHeaders['content-encoding'];
+                delete responseHeaders['content-length'];
+
+                res.writeHead(proxyRes.statusCode, responseHeaders);
                 proxyRes.pipe(res);
             });
             proxyReq.on('error', () => { if (!res.headersSent) { res.writeHead(502); res.end('Bad Gateway'); } });

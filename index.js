@@ -3,6 +3,7 @@
  * @module index
  * @description Entry point runtime groundtruth delegazione CLI o proxy flow logic.
  */
+import './src/http-agent.js';
 import { chalk, label } from './src/logger.js';
 import { usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, port, intervalMinutes, batchSize, version } from './src/cli.js';
 import { createServer } from './src/proxy.js';

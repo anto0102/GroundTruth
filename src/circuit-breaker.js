@@ -13,6 +13,7 @@ export class CircuitBreaker {
         this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN
         this.failures = 0;
         this.lastFailureTime = null;
+        this.halfOpenSuccesses = 0;
     }
 
     /**
@@ -57,6 +58,7 @@ export class CircuitBreaker {
         // 429 rate limit apre il circuito immediatamente
         if (err?.message?.includes('429')) {
             this.failures = this.failureThreshold;
+            this.state = 'OPEN';
         } else {
             this.failures++;
         }

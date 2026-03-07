@@ -1,5 +1,5 @@
 name: GroundTruth
-version: 0.1.4
+version: 0.3.0
 description: |
   GroundTruth is a zero-configuration, transparent middleware context injection layer.
   It is designed to bridge the deterministic knowledge cutoff gap of LLM-based coding agents 

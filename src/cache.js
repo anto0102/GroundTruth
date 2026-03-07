@@ -105,3 +105,5 @@ class LRUCache {
 
 // Esporta singola cache istanza module globale (singleton per memory context node)
 export const searchCache = new LRUCache({ max: 500, ttl: 5 * 60 * 1000 });
+
+export { LRUCache };

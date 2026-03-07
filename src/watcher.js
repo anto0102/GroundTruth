@@ -11,7 +11,6 @@ import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
 import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { version, maxTokens, quality, qualitySettings, verbose, customSources } from './cli.js';
 import { loadBatchState, saveBatchState } from './state.js';
-import { httpsAgent } from './http-agent.js';
 
 // ─── Scheduler Watcher Instance ──────────────────────
 
@@ -70,7 +69,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
         for (const batch of batches) {
             const promise = (async () => {
-                const blockId = batchHash(batch);
+                const blockId = batchHash(batch.map(d => d.split(' ')[0]));
                 activeBlockIds.add(blockId);
 
                 const currentHash = batchHash(batch);
@@ -160,13 +159,16 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
         // ── Custom sources from .groundtruth.json ──
         if (customSources.length > 0) {
-            for (const src of customSources) {
+            const CUSTOM_SOURCE_TTL_MS = 60 * 60 * 1000;
+            const customWork = customSources.map(async (src) => {
                 const blockId = 'src_' + Buffer.from(src.url).toString('base64url').slice(0, 8);
+                const tsKey = 'src_ts_' + blockId;
                 activeBlockIds.add(blockId);
 
-                if (previousBatchHashes.has(blockId)) {
+                const lastFetchTime = previousBatchHashes.get(tsKey) || 0;
+                if ((Date.now() - lastFetchTime) < CUSTOM_SOURCE_TTL_MS) {
                     skippedCount++;
-                    continue;
+                    return;
                 }
 
                 try {
@@ -180,14 +182,15 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                             globalContent: `## ${srcLabel}\n${sanitizeWebContent(text, 500)}\n`,
                             workspaceContent: md
                         }]);
-                        previousBatchHashes.set(blockId, blockId);
+                        previousBatchHashes.set(tsKey, Date.now());
                         updatedCount++;
                         log(LOG_REFRESH, chalk.cyan, `custom source updated → ${srcLabel}`);
                     }
                 } catch (_) {
                     failedCount++;
                 }
-            }
+            });
+            await Promise.all(customWork);
         }
 
         await removeStaleBlocks(globalPath, activeBlockIds);
@@ -198,19 +201,8 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
         log(LOG_REFRESH, chalk.gray, `cycle done → ${activeBlockIds.size} blocks active, ${updatedCount} updated, ${skippedCount} skipped, ${failedCount} errors`);
     }
 
-    let cycleCount = 0;
-
-    process.on('SIGINT', async () => {
-        await saveBatchState(previousBatchHashes, version);
-        process.exit(0);
-    });
-
-    updateSkill();
+    updateSkill().catch(err => log(LOG_WARN, chalk.yellow, 'updateSkill error: ' + err.message));
     setInterval(() => {
-        cycleCount++;
-        if (cycleCount % 10 === 0) {
-            httpsAgent.destroy();
-        }
-        updateSkill();
+        updateSkill().catch(err => log(LOG_WARN, chalk.yellow, 'updateSkill error: ' + err.message));
     }, intervalMinutes * 60 * 1000);
 }

@@ -23,24 +23,36 @@ export async function readPackageDeps() {
         }
         const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
 
-        const excludeList = ["plugin", "adapter", "check", "eslint", "prettier", "vite", "rollup", "webpack", "babel"];
+        const EXACT_EXCLUDE = new Set(['eslint', 'prettier', 'vite', 'rollup', 'webpack', 'babel', 'turbo', 'esbuild']);
+        const SUBSTR_EXCLUDE = ['plugin', 'adapter', '-check', 'lint-staged'];
 
         const filterAndFormat = (depsObj) => {
             if (!depsObj) return [];
             return Object.entries(depsObj)
-                .filter(([n]) => !excludeList.some(ex => n.toLowerCase().includes(ex)))
+                .filter(([n]) => {
+                    const lower = n.toLowerCase();
+                    const base = lower.startsWith('@') ? lower.split('/')[1] : lower;
+                    if (EXACT_EXCLUDE.has(base)) return false;
+                    if (SUBSTR_EXCLUDE.some(ex => lower.includes(ex))) return false;
+                    return true;
+                })
                 .map(([n, v]) => {
                     let cleanName = n;
                     if (n === '@sveltejs/kit') cleanName = 'sveltekit';
-                    else if (n.startsWith('@')) cleanName = n.split('/')[1];
                     let cleanVersion = String(v).replace(/[\^~>=<]/g, '').split('.').slice(0, 2).join('.');
                     return `${cleanName} ${cleanVersion}`;
                 });
         };
 
-        let selected = filterAndFormat(pkg.dependencies);
-        selected = selected.concat(filterAndFormat(pkg.devDependencies));
+        const depMap = new Map();
+        for (const [n, v] of Object.entries(pkg.dependencies || {})) {
+            depMap.set(n, v);
+        }
+        for (const [n, v] of Object.entries(pkg.devDependencies || {})) {
+            if (!depMap.has(n)) depMap.set(n, v);
+        }
 
+        const selected = filterAndFormat(Object.fromEntries(depMap));
         return selected.length > 0 ? selected : null;
     } catch (err) {
         log(LOG_WARN, chalk.yellow, chalk.white('package.json parse error') + `  →  ${chalk.yellow(err.message)}`);

@@ -44,7 +44,17 @@ const NOISE_PATTERNS = [
     /Open Source/gi,
     /Enterprises/gi,
     /Startups/gi,
+    /Customer stories|Ebooks & reports|Events & webinars/gi,
+    /GitHub (Sponsors|Skills|Accelerator|Archive Program|Spark|Models)/gi,
+    /Weekly Downloads|Unpacked Size|Total Files|Collaborators/gi,
+    /Analyze with Socket|Check bundle size|View package health|Explore dependencies/gi,
+    /Skip to content|Skip to main content|skip to:\[content\]|package search/gi,
+    /\[Signing in\]\(https:\/\/github\.com\/login\)/gi,
+    /Performing verification|This website uses a service to protect against malicious bots/gi,
+    /Radix Primitives|Visually or semantically separates content/gi,
+    /View docs here|Check bundle size|View package health/gi,
 ];
+
 
 /**
  * @description Filtra pattern pericolosi e rumore di navigazione dal testo web scrappato.

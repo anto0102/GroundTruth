@@ -9,6 +9,14 @@ import os from 'os';
 import { chalk, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { atomicWrite } from './utils/atomic-write.js';
 
+const fileLocks = new Map();
+async function withFileLock(filePath, fn) {
+    const previous = fileLocks.get(filePath) || Promise.resolve();
+    const next = previous.then(fn, fn);
+    fileLocks.set(filePath, next.catch(() => { }));
+    return next;
+}
+
 // ─── Document injection rules ────────────────────────
 
 /**
@@ -19,24 +27,30 @@ import { atomicWrite } from './utils/atomic-write.js';
  * @returns {Promise<void>}
  */
 export async function injectBlock(filePath, content, blockId) {
-    let fileContent = '';
-    if (existsSync(filePath)) {
-        fileContent = await fs.readFile(filePath, 'utf8');
-    }
-    const startTag = `<!-- groundtruth:block-${blockId}:start -->`;
-    const endTag = `<!-- groundtruth:block-${blockId}:end -->`;
-    const block = `${startTag}\n${content.trim()}\n${endTag}`;
+    return withFileLock(filePath, async () => {
+        let fileContent = '';
+        if (existsSync(filePath)) {
+            fileContent = await fs.readFile(filePath, 'utf8');
+        }
+        const startTag = `<!-- groundtruth:block-${blockId}:start -->`;
+        const endTag = `<!-- groundtruth:block-${blockId}:end -->`;
+        const block = `${startTag}\n${content.trim()}\n${endTag}`;
 
-    const startIndex = fileContent.indexOf(startTag);
-    const endIndex = fileContent.indexOf(endTag);
+        const startIndex = fileContent.indexOf(startTag);
+        const endIndex = fileContent.indexOf(endTag);
 
-    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-        fileContent = fileContent.slice(0, startIndex) + block + fileContent.slice(endIndex + endTag.length);
-    } else {
-        fileContent = fileContent.trimEnd() + '\n\n' + block + '\n';
-    }
+        if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+            // Sostituisce il blocco esistente mantenendo il resto del file intatto
+            const before = fileContent.slice(0, startIndex);
+            const after = fileContent.slice(endIndex + endTag.length);
+            fileContent = before + block + after;
+        } else {
+            // Aggiunge in fondo se non esiste
+            fileContent = fileContent.trimEnd() + '\n\n' + block + '\n';
+        }
 
-    await atomicWrite(filePath, fileContent);
+        await atomicWrite(filePath, fileContent);
+    });
 }
 
 /**
@@ -48,7 +62,7 @@ export async function injectBlock(filePath, content, blockId) {
 export async function removeStaleBlocks(filePath, activeBlockIds) {
     if (!existsSync(filePath)) return;
     let fileContent = await fs.readFile(filePath, 'utf8');
-    const regex = /<!-- groundtruth:block-(\w+):start -->[\s\S]*?<!-- groundtruth:block-\w+:end -->/g;
+    const regex = /<!-- groundtruth:block-(\w+):start -->[\s\S]*?<!-- groundtruth:block-\1:end -->/g;
 
     let modified = false;
     fileContent = fileContent.replace(regex, (match, blockId) => {
