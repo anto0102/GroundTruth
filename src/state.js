@@ -13,26 +13,39 @@ const STATE_FILE = path.join(STATE_DIR, 'watcher-state.json');
 
 /**
  * @description Carica gli hash validati e memorizzati dallo schedule storage locale.
- * @returns {Promise<Map>} Restituisce le hash map entries persistite del cron logic stream precedente.
+ * @param {string} currentVersion - Versione attuale dell'applicazione per validare la cache.
+ * @returns {Promise<Map>} Restituisce le hash map entries persistite o una mappa vuota se la versione differisce.
  */
-export async function loadBatchState() {
+export async function loadBatchState(currentVersion) {
     try {
         if (!existsSync(STATE_FILE)) return new Map();
         const data = await readFile(STATE_FILE, 'utf8');
-        const parsed = JSON.parse(data);
-        return new Map(Object.entries(parsed));
+        const state = JSON.parse(data);
+
+        // Invalida la cache se la versione è differente (forza refresh dopo update)
+        if (state.version !== currentVersion) {
+            return new Map();
+        }
+
+        return new Map(Object.entries(state.hashes || {}));
     } catch {
         return new Map();
     }
 }
 
 /**
- * @description Sincronizza hash batches per fault tolerance cross process
- * @param {Map} map - Oggetto dei blocchi hashati validi in mem persist state map
+ * @description Sincronizza hash batches e versione per fault tolerance cross process.
+ * @param {Map} map - Oggetto dei blocchi hashati validi.
+ * @param {string} version - Versione attuale dell'applicazione.
  * @returns {Promise<void>} 
  */
-export async function saveBatchState(map) {
+export async function saveBatchState(map, version) {
     await mkdir(STATE_DIR, { recursive: true });
-    const obj = Object.fromEntries(map);
-    await atomicWrite(STATE_FILE, JSON.stringify(obj, null, 2), { backup: false });
+    const state = {
+        version: version,
+        updatedAt: new Date().toISOString(),
+        hashes: Object.fromEntries(map)
+    };
+    await atomicWrite(STATE_FILE, JSON.stringify(state, null, 2), { backup: false });
 }
+

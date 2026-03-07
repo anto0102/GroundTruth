@@ -2,7 +2,6 @@
  * @module registry
  * @description Interroga il Cloudflare Worker (Remote Registry) per risolvere URL docs ufficiali.
  */
-import fetch from 'node-fetch';
 
 const REGISTRY_API_URL = 'https://groundtruth-registry.antony-flex01.workers.dev/lookup';
 
@@ -18,7 +17,11 @@ export async function lookupRegistryUrl(depName) {
     if (!depName) return null;
 
     // Normalizzazione preventiva
-    const name = depName.split(' ')[0].toLowerCase().trim();
+    let name = depName.split(' ')[0].toLowerCase().trim();
+
+    // Alias mapping per framework comuni con scope npm
+    if (name === '@sveltejs/kit') name = 'sveltekit';
+
 
     // Check hit in memoria (ritorna subito)
     if (lookupCache.has(name)) {

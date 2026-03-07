@@ -2,7 +2,6 @@
  * @module search
  * @description Logica di scraping web: Jina Reader → fallback Readability, registry bypass, DDG search.
  */
-import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { Readability } from '@mozilla/readability';
 import { DOMParser } from 'linkedom';
@@ -59,8 +58,7 @@ export async function fetchPageContent(url, userAgent, opts = {}) {
     try {
         const pageRes = await fetch(url, {
             signal: AbortSignal.timeout(5000),
-            headers: { 'User-Agent': userAgent },
-            agent: url.startsWith('https:') ? httpsAgent : httpAgent
+            headers: { 'User-Agent': userAgent }
         });
         if (pageRes.ok) {
             const document = new DOMParser().parseFromString(await pageRes.text(), 'text/html');
@@ -142,7 +140,7 @@ async function doSearch(query, resultsLimit = 3) {
     const userAgent = getRandomUA();
     const searchRes = await fetch(
         `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-        { signal: AbortSignal.timeout(5000), headers: { 'User-Agent': userAgent }, agent: httpsAgent }
+        { signal: AbortSignal.timeout(5000), headers: { 'User-Agent': userAgent } }
     );
     if (!searchRes.ok) throw new Error(`DDG ${searchRes.status}`);
 

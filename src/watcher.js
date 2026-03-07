@@ -52,7 +52,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
     async function updateSkill() {
         if (previousBatchHashes.size === 0) {
-            previousBatchHashes = await loadBatchState();
+            previousBatchHashes = await loadBatchState(version);
         }
         const deps = await readPackageDeps();
         if (!deps || deps.length === 0) {
@@ -193,7 +193,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
         await removeStaleBlocks(globalPath, activeBlockIds);
         await removeStaleBlocks(workspacePath, activeBlockIds);
 
-        await saveBatchState(previousBatchHashes);
+        await saveBatchState(previousBatchHashes, version);
 
         log(LOG_REFRESH, chalk.gray, `cycle done → ${activeBlockIds.size} blocks active, ${updatedCount} updated, ${skippedCount} skipped, ${failedCount} errors`);
     }
@@ -201,7 +201,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     let cycleCount = 0;
 
     process.on('SIGINT', async () => {
-        await saveBatchState(previousBatchHashes);
+        await saveBatchState(previousBatchHashes, version);
         process.exit(0);
     });
 
