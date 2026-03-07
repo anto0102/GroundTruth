@@ -96,7 +96,7 @@ export async function registryFetch(deps, opts = {}) {
     const coveredDeps = new Set();
 
     for (const dep of deps) {
-        const docUrl = lookupRegistryUrl(dep);
+        const docUrl = await lookupRegistryUrl(dep);
         if (!docUrl) continue;
 
         const depName = dep.split(' ')[0];

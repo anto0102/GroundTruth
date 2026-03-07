@@ -235,21 +235,21 @@ describe('resolveDDGUrl', () => {
 import { lookupRegistryUrl } from '../src/registry.js';
 
 describe('lookupRegistryUrl', () => {
-    it('finds exact matches', () => {
-        assert.equal(lookupRegistryUrl('svelte'), 'https://svelte.dev/docs/svelte/overview');
-        assert.equal(lookupRegistryUrl('react 19'), 'https://react.dev/reference/react');
+    it('finds exact matches from cloudflare', async () => {
+        assert.equal(await lookupRegistryUrl('svelte'), 'https://svelte.dev/docs/svelte/overview');
+        assert.equal(await lookupRegistryUrl('react 19'), 'https://react.dev/reference/react');
     });
 
-    it('strips @scope and matches', () => {
-        assert.equal(lookupRegistryUrl('@sveltejs/kit 2.50'), 'https://svelte.dev/docs/kit/introduction');
+    it('strips @scope and matches', async () => {
+        assert.equal(await lookupRegistryUrl('@sveltejs/kit 2.50'), 'https://svelte.dev/docs/kit/introduction');
     });
 
-    it('strips -js suffix and matches', () => {
-        assert.equal(lookupRegistryUrl('solid-js'), 'https://docs.solidjs.com/');
+    it('strips -js suffix and matches', async () => {
+        assert.equal(await lookupRegistryUrl('solid-js'), 'https://docs.solidjs.com/');
     });
 
-    it('returns null for unknown packages', () => {
-        assert.equal(lookupRegistryUrl('some-unknown-pkg'), null);
+    it('returns null for unknown packages', async () => {
+        assert.equal(await lookupRegistryUrl('some-unknown-pkg'), null);
     });
 });
 

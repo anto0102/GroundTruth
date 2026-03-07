@@ -1,62 +1,55 @@
 /**
  * @module registry
- * @description Mappa hardcodata dipendenza → URL docs ufficiale per bypass DDG su framework noti.
+ * @description Interroga il Cloudflare Worker (Remote Registry) per risolvere URL docs ufficiali.
  */
+import fetch from 'node-fetch';
 
-// ─── Docs URL Registry ──────────────────────────────
+const REGISTRY_API_URL = 'https://groundtruth-registry.antony-flex01.workers.dev/lookup';
 
-const DOCS_REGISTRY = {
-    'svelte': 'https://svelte.dev/docs/svelte/overview',
-    'sveltekit': 'https://svelte.dev/docs/kit/introduction',
-    'react': 'https://react.dev/reference/react',
-    'react-dom': 'https://react.dev/reference/react-dom',
-    'next': 'https://nextjs.org/docs',
-    'nextjs': 'https://nextjs.org/docs',
-    'vue': 'https://vuejs.org/api/',
-    'nuxt': 'https://nuxt.com/docs/api',
-    'angular': 'https://angular.dev/overview',
-    'astro': 'https://docs.astro.build/en/reference/configuration-reference/',
-    'tailwindcss': 'https://tailwindcss.com/docs',
-    'typescript': 'https://www.typescriptlang.org/docs/',
-    'express': 'https://expressjs.com/en/5x/api.html',
-    'fastify': 'https://fastify.dev/docs/latest/',
-    'hono': 'https://hono.dev/docs/',
-    'solid-js': 'https://docs.solidjs.com/',
-    'qwik': 'https://qwik.dev/docs/',
-    'remix': 'https://remix.run/docs/en/main',
-    'prisma': 'https://www.prisma.io/docs',
-    'drizzle-orm': 'https://orm.drizzle.team/docs/overview',
-    'three': 'https://threejs.org/docs/',
-    'zod': 'https://zod.dev/',
-    'trpc': 'https://trpc.io/docs',
-    'tanstack-query': 'https://tanstack.com/query/latest/docs/overview',
-};
+// Cache in memoria per evitare query multiple allo stesso endpoint durante lo stesso run del watcher
+const lookupCache = new Map();
 
 /**
- * @description Normalizza nome dipendenza e cerca URL docs nel registry.
+ * @description Interroga asincronamente l'API cloudflare per cercare URL docs nel registry remoto
  * @param   {string} depName - Nome dipendenza da package.json (es. "svelte 5.51" o "@sveltejs/kit")
- * @returns {string|null} URL docs diretto o null se non trovato
+ * @returns {Promise<string|null>} URL docs diretto o null se non trovato/errore (fallback DDG cerniera)
  */
-export function lookupRegistryUrl(depName) {
-    // Prende solo il nome senza versione ("svelte 5.51" → "svelte")
-    const name = depName.split(' ')[0].toLowerCase();
+export async function lookupRegistryUrl(depName) {
+    if (!depName) return null;
 
-    // Match diretto
-    if (DOCS_REGISTRY[name]) return DOCS_REGISTRY[name];
+    // Normalizzazione preventiva
+    const name = depName.split(' ')[0].toLowerCase().trim();
 
-    // Strip @scope/ prefix ("@sveltejs/kit" → "kit", ma usiamo mapping speciali)
-    if (name === '@sveltejs/kit') return DOCS_REGISTRY['sveltekit'];
-    if (name === 'next' || name === '@next/core') return DOCS_REGISTRY['next'];
+    // Check hit in memoria (ritorna subito)
+    if (lookupCache.has(name)) {
+        return lookupCache.get(name);
+    }
 
-    // Generic scope strip
-    const stripped = name.startsWith('@') ? name.split('/')[1] : name;
-    if (DOCS_REGISTRY[stripped]) return DOCS_REGISTRY[stripped];
+    try {
+        // Fetch asincrono con timeout stretto per evitare latenze di fallback
+        const res = await fetch(`${REGISTRY_API_URL}?pkg=${encodeURIComponent(name)}`, {
+            signal: AbortSignal.timeout(1500), // Max 1.5s aspetta il Cloudflare worker
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
 
-    // Strip -js suffix ("solid-js" → "solid")
-    const noJs = stripped.replace(/-js$/, '');
-    if (noJs !== stripped && DOCS_REGISTRY[noJs]) return DOCS_REGISTRY[noJs];
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.found && data.url) {
+                lookupCache.set(name, data.url); // Cache hit success
+                return data.url;
+            }
+        }
 
-    return null;
+        // Se l'API restituisce 404/not found
+        lookupCache.set(name, null); // Cache negative (così non rifacciamo network)
+        return null;
+
+    } catch (err) {
+        // Failover silente! (timeout o worker rotto). Se Cloudflare fallisce, 
+        // noi non diamo errore all'utente ma facciamo DDG search fallback locale naturale.
+        lookupCache.set(name, null);
+        return null;
+    }
 }
-
-export { DOCS_REGISTRY };
