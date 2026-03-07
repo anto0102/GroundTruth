@@ -5,23 +5,21 @@
  */
 import './src/http-agent.js';
 import { chalk, label } from './src/logger.js';
-import { usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, port, intervalMinutes, batchSize, version } from './src/cli.js';
+import { intro, outro, select, isCancel, cancel } from '@clack/prompts';
+import { usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, interactiveMode, port, intervalMinutes, batchSize, version } from './src/cli.js';
 import { createServer } from './src/proxy.js';
 import { autoSetEnv, removeEnv } from './src/env.js';
 import { startWatcher } from './src/watcher.js';
 
-// ─── Dispatcher start app logic ──────────────────────
+// ─── Execution Logic ─────────────────────────────────
 
-if (uninstallMode) {
-  console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[uninstall]')}\n`);
-  await removeEnv();
-  process.exit(0);
-} else if (antigravityMode) {
+const runAntigravity = () => {
   startWatcher({ intervalMinutes, usePackageJson, batchSize });
-} else if (claudeCodeMode) {
+};
+
+const runClaudeCode = async () => {
   const server = await createServer(usePackageJson);
   const startServer = (p) => {
-    // EADDRINUSE fallback listener fail chain ricorsivo su port shift param logic 
     server.on('error', (e) => (e.code === 'EADDRINUSE' ? startServer(p + 1) : console.error(chalk.red(`Server error: ${e.message}`))));
     server.listen(p, async () => {
       console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[claude-code mode]')}\n`);
@@ -33,4 +31,43 @@ if (uninstallMode) {
     });
   };
   startServer(port);
+};
+
+const runUninstall = async () => {
+  console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[uninstall]')}\n`);
+  await removeEnv();
+  process.exit(0);
+};
+
+// ─── Dispatcher start app logic ──────────────────────
+
+if (interactiveMode) {
+  intro(`${chalk.white.bold('GroundTruth')} ${chalk.gray(`v${version}`)}`);
+
+  const mode = await select({
+    message: 'Select execution mode:',
+    options: [
+      { value: 'antigravity', label: 'Antigravity Mode', hint: 'Background watcher for local dotfiles' },
+      { value: 'claude', label: 'Claude Code Mode', hint: 'HTTP proxy interceptor' },
+      { value: 'uninstall', label: 'Uninstall', hint: 'Clean up shell environments' },
+    ],
+  });
+
+  if (isCancel(mode)) {
+    cancel('Operation cancelled.');
+    process.exit(0);
+  }
+
+  if (mode === 'antigravity') runAntigravity();
+  if (mode === 'claude') await runClaudeCode();
+  if (mode === 'uninstall') await runUninstall();
+} else {
+  if (uninstallMode) {
+    await runUninstall();
+  } else if (antigravityMode) {
+    runAntigravity();
+  } else if (claudeCodeMode) {
+    await runClaudeCode();
+  }
 }
+
