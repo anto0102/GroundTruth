@@ -57,6 +57,8 @@ if (interactiveMode) {
     process.exit(0);
   }
 
+  outro(`Starting ${mode}...`);
+
   if (mode === 'antigravity') runAntigravity();
   if (mode === 'claude') await runClaudeCode();
   if (mode === 'uninstall') await runUninstall();

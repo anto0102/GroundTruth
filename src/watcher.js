@@ -11,6 +11,7 @@ import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
 import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { version, maxTokens, quality, qualitySettings, verbose, customSources } from './cli.js';
 import { loadBatchState, saveBatchState } from './state.js';
+import { spinner } from '@clack/prompts';
 
 // ─── Scheduler Watcher Instance ──────────────────────
 
@@ -37,8 +38,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     }
     if (verbose) console.log(label('◆', 'verbose', 'enabled'));
     console.log();
-    console.log(`  ${chalk.cyan('✻')} Running. Antigravity will load context automatically.`);
-    console.log();
+
 
     let previousBatchHashes = new Map();
 
@@ -201,8 +201,25 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
         log(LOG_REFRESH, chalk.gray, `cycle done → ${activeBlockIds.size} blocks active, ${updatedCount} updated, ${skippedCount} skipped, ${failedCount} errors`);
     }
 
-    updateSkill().catch(err => log(LOG_WARN, chalk.yellow, 'updateSkill error: ' + err.message));
-    setInterval(() => {
-        updateSkill().catch(err => log(LOG_WARN, chalk.yellow, 'updateSkill error: ' + err.message));
-    }, intervalMinutes * 60 * 1000);
+    const s = spinner();
+    let isFirstRun = true;
+
+    async function runWatcherCycle() {
+        if (isFirstRun) {
+            s.start('Antigravity is loading initial context...');
+        }
+        try {
+            await updateSkill();
+        } catch (err) {
+            log(LOG_WARN, chalk.yellow, 'updateSkill error: ' + err.message);
+        } finally {
+            if (isFirstRun) {
+                s.stop('Antigravity active. Context loaded automatically.');
+                isFirstRun = false;
+            }
+        }
+    }
+
+    runWatcherCycle();
+    setInterval(runWatcherCycle, intervalMinutes * 60 * 1000);
 }
