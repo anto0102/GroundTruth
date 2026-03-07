@@ -9,6 +9,7 @@ import { readPackageDeps, buildQuery } from './packages.js';
 import { chalk, log, LOG_WARN, LOG_BOLT } from './logger.js';
 import { httpsAgent } from './http-agent.js';
 import { sanitizeWebContent } from './sanitize.js';
+import { maxTokens, qualitySettings, verbose } from './cli.js';
 
 // ─── HTTP Node server daemon ─────────────────────────
 
@@ -94,14 +95,19 @@ export async function createServer(usePackageJson) {
             try {
                 if (!query || query.trim() === String(new Date().getFullYear())) throw new Error('Empty query');
                 // parallel load in proxy app process to boost response load
-                const { results, pageText } = await webSearch(query, true);
+                const { results, pageText } = await webSearch(query, true, {
+                    ddgResults: qualitySettings.ddgResults,
+                    maxLen: qualitySettings.charsPerPage,
+                    jinaTimeout: qualitySettings.jinaTimeout,
+                    verbose,
+                });
                 resultsCount = results.length;
 
                 contextBlock = `\n\n--- WEB CONTEXT (live, ${new Date().toISOString()}) ---\n`;
                 results.forEach((r, i) => {
                     contextBlock += `${i + 1}. ${r.title}: ${sanitizeWebContent(r.snippet, 500)} (${r.url})\n`;
                 });
-                if (pageText) contextBlock += `\nFULL TEXT:\n${sanitizeWebContent(pageText)}\n`;
+                if (pageText) contextBlock += `\nFULL TEXT:\n${sanitizeWebContent(pageText, maxTokens)}\n`;
                 contextBlock += `--- END WEB CONTEXT ---\n`;
                 didInject = true;
             } catch (_) {

@@ -229,3 +229,42 @@ describe('resolveDDGUrl', () => {
         assert.ok(typeof result === 'string');
     });
 });
+
+// ─── Registry ────────────────────────────────────────
+
+import { lookupRegistryUrl } from '../src/registry.js';
+
+describe('lookupRegistryUrl', () => {
+    it('finds exact matches', () => {
+        assert.equal(lookupRegistryUrl('svelte'), 'https://svelte.dev/docs/svelte/overview');
+        assert.equal(lookupRegistryUrl('react 19'), 'https://react.dev/reference/react');
+    });
+
+    it('strips @scope and matches', () => {
+        assert.equal(lookupRegistryUrl('@sveltejs/kit 2.50'), 'https://svelte.dev/docs/kit/introduction');
+    });
+
+    it('strips -js suffix and matches', () => {
+        assert.equal(lookupRegistryUrl('solid-js'), 'https://docs.solidjs.com/');
+    });
+
+    it('returns null for unknown packages', () => {
+        assert.equal(lookupRegistryUrl('some-unknown-pkg'), null);
+    });
+});
+
+// ─── Config ──────────────────────────────────────────
+
+import { resolveQuality, QUALITY_PRESETS } from '../src/config.js';
+
+describe('resolveQuality', () => {
+    it('returns medium by default for unknown', () => {
+        const res = resolveQuality('unknown-level');
+        assert.deepEqual(res, QUALITY_PRESETS.medium);
+    });
+
+    it('returns correct preset', () => {
+        const res = resolveQuality('high');
+        assert.deepEqual(res, QUALITY_PRESETS.high);
+    });
+});

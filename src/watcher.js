@@ -1,15 +1,15 @@
 /**
  * @module watcher
- * @description Timer poll di Antigravity update locale skill inject doc rules, ora con caching a batch blocchi separati.
+ * @description Timer poll di Antigravity update locale skill inject doc rules, con registry bypass e quality settings.
  */
 import os from 'os';
 import path from 'path';
-import { webSearch } from './search.js';
+import { webSearch, registryFetch, fetchPageContent } from './search.js';
 import { readPackageDeps, buildQuery, groupIntoBatches, batchHash } from './packages.js';
 import { sanitizeWebContent } from './sanitize.js';
 import { updateGeminiFiles, removeStaleBlocks } from './inject.js';
 import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
-import { version } from './cli.js';
+import { version, maxTokens, quality, qualitySettings, verbose, customSources } from './cli.js';
 import { loadBatchState, saveBatchState } from './state.js';
 import { httpsAgent } from './http-agent.js';
 
@@ -30,20 +30,33 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     console.log(label('◆', 'workspace', skillFilePretty));
     console.log(label('◆', 'interval', `every ${intervalMinutes} min`));
     console.log(label('◆', 'batch_size', `chunk limit ${batchSize}`));
-    console.log(label('◆', 'context', 'DuckDuckGo → live'));
+    console.log(label('◆', 'engine', 'Jina Reader → Readability fallback'));
+    console.log(label('◆', 'quality', `${quality} (${qualitySettings.ddgResults} results, ${qualitySettings.charsPerPage} chars)`));
+    console.log(label('◆', 'max_tokens', `${maxTokens}`));
+    if (customSources.length > 0) {
+        console.log(label('◆', 'sources', `${customSources.length} custom URL(s)`));
+    }
+    if (verbose) console.log(label('◆', 'verbose', 'enabled'));
     console.log();
     console.log(`  ${chalk.cyan('✻')} Running. Antigravity will load context automatically.`);
     console.log();
 
     let previousBatchHashes = new Map();
 
+    const searchOpts = {
+        ddgResults: qualitySettings.ddgResults,
+        maxLen: qualitySettings.charsPerPage,
+        jinaTimeout: qualitySettings.jinaTimeout,
+        verbose,
+    };
+
     async function updateSkill() {
         if (previousBatchHashes.size === 0) {
             previousBatchHashes = await loadBatchState();
         }
-        const deps = await readPackageDeps(); // tutte le deps
+        const deps = await readPackageDeps();
         if (!deps || deps.length === 0) {
-            return; // fall back to something default or just skip 
+            return;
         }
 
         const batches = groupIntoBatches(deps, batchSize);
@@ -66,11 +79,30 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                     return;
                 }
 
-                const query = buildQuery(batch);
                 try {
-                    const { results, pageText } = await webSearch(query, false);
+                    // ── Registry fetch per dipendenze note ──
+                    const { registryText, coveredDeps } = await registryFetch(batch, searchOpts);
+
+                    // ── DDG search per dipendenze non coperte dal registry ──
+                    const uncoveredBatch = batch.filter(d => !coveredDeps.has(d));
+                    let ddgText = '';
+                    let results = [];
+
+                    if (uncoveredBatch.length > 0) {
+                        const query = buildQuery(uncoveredBatch);
+                        try {
+                            const res = await webSearch(query, false, searchOpts);
+                            results = res.results;
+                            ddgText = res.pageText;
+                        } catch (_) {
+                            if (verbose) log(LOG_WARN, chalk.yellow, `DDG search failed for: ${uncoveredBatch.join(', ')}`);
+                        }
+                    }
+
+                    const combinedText = registryText + (ddgText || '');
                     const badSignals = ['403', 'captcha', 'blocked', 'access denied', 'forbidden'];
-                    const isBad = !pageText || pageText.length < 200 || badSignals.some(s => pageText.toLowerCase().includes(s));
+                    const isBad = !combinedText || combinedText.length < 200 || badSignals.some(s => combinedText.toLowerCase().includes(s));
+
                     if (isBad && previousBatchHashes.has(blockId)) {
                         log(LOG_WARN, chalk.yellow, `low quality result for block ${blockId} → keeping previous context`);
                         failedCount++;
@@ -82,19 +114,22 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                     const batchTitle = batch.map(b => b.split(' ')[0]).join(', ');
 
                     let globalMd = `## Live Context — ${batchTitle} (${nowStr})\n`;
-                    globalMd += `**Query:** ${query}\n\n`;
-                    if (results.length > 0) {
+                    if (registryText) {
+                        globalMd += sanitizeWebContent(registryText, 500) + '\n';
+                    } else if (results.length > 0) {
                         globalMd += `### ${results[0].title}\n`;
                         globalMd += `${sanitizeWebContent(results[0].snippet, 300)} — ${results[0].url}\n`;
                     }
 
                     let md = `## Live Context — ${batchTitle} (${nowStr})\n`;
-                    md += `**Query:** ${query}\n\n`;
+                    if (registryText) {
+                        md += sanitizeWebContent(registryText, maxTokens) + '\n\n';
+                    }
                     for (const r of results) {
                         md += `### ${r.title}\n${sanitizeWebContent(r.snippet, 500)} — ${r.url}\n\n`;
                     }
-                    if (pageText) {
-                        md += `FULL TEXT: ${sanitizeWebContent(pageText)}\n`;
+                    if (ddgText) {
+                        md += `FULL TEXT: ${sanitizeWebContent(ddgText, maxTokens)}\n`;
                     }
 
                     await updateGeminiFiles([{
@@ -105,7 +140,11 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
                     previousBatchHashes.set(blockId, currentHash);
                     updatedCount++;
-                    log(LOG_REFRESH, chalk.cyan, `block ${blockId} updated → ${batch.join(', ')}`);
+
+                    const sources = [];
+                    if (coveredDeps.size > 0) sources.push(`registry:${coveredDeps.size}`);
+                    if (results.length > 0) sources.push(`ddg:${results.length}`);
+                    log(LOG_REFRESH, chalk.cyan, `block ${blockId} updated → ${batch.join(', ')} [${sources.join(', ')}]`);
                 } catch (e) {
                     failedCount++;
                     log(LOG_WARN, chalk.yellow, `block ${blockId} fetch failed → keeping previous`);
@@ -119,6 +158,38 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
         }
         await Promise.all(executing);
 
+        // ── Custom sources from .groundtruth.json ──
+        if (customSources.length > 0) {
+            for (const src of customSources) {
+                const blockId = 'src_' + Buffer.from(src.url).toString('base64url').slice(0, 8);
+                activeBlockIds.add(blockId);
+
+                if (previousBatchHashes.has(blockId)) {
+                    skippedCount++;
+                    continue;
+                }
+
+                try {
+                    const text = await fetchPageContent(src.url, '', searchOpts);
+                    if (text && text.length > 100) {
+                        const srcLabel = src.label || new URL(src.url).hostname;
+                        const md = `## Custom Source — ${srcLabel}\n${sanitizeWebContent(text, maxTokens)}\n`;
+
+                        await updateGeminiFiles([{
+                            blockId,
+                            globalContent: `## ${srcLabel}\n${sanitizeWebContent(text, 500)}\n`,
+                            workspaceContent: md
+                        }]);
+                        previousBatchHashes.set(blockId, blockId);
+                        updatedCount++;
+                        log(LOG_REFRESH, chalk.cyan, `custom source updated → ${srcLabel}`);
+                    }
+                } catch (_) {
+                    failedCount++;
+                }
+            }
+        }
+
         await removeStaleBlocks(globalPath, activeBlockIds);
         await removeStaleBlocks(workspacePath, activeBlockIds);
 
@@ -129,18 +200,16 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
     let cycleCount = 0;
 
-    // Periodical state persistence on process exit to avoid total crash data loss
     process.on('SIGINT', async () => {
         await saveBatchState(previousBatchHashes);
         process.exit(0);
     });
 
-    // Lancio a startup immediato
     updateSkill();
     setInterval(() => {
         cycleCount++;
         if (cycleCount % 10 === 0) {
-            httpsAgent.destroy(); // Forza chiusura idle connections
+            httpsAgent.destroy();
         }
         updateSkill();
     }, intervalMinutes * 60 * 1000);

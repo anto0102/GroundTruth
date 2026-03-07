@@ -1,5 +1,3 @@
-![GroundTruth Banner](assets/banner.svg)
-
 # GroundTruth
 
 > Zero-configuration context injection layer for LLM-based coding agents.
@@ -43,6 +41,13 @@ Current-generation AI coding assistants (Claude Code, Antigravity, Cursor) suffe
 
 **GroundTruth** acts as a transparent middleware layer that resolves this by dynamically injecting real-time, stack-specific documentation directly into the agent's context window prior to inference.
 
+### The v0.2.0 Engine: Jina Reader & Source Registry
+
+GroundTruth v0.2.0 introduces a massive upgrade to content quality:
+- **Jina Reader API Integration**: Parses dynamic, JavaScript-rendered SPAs (like Vercel AI SDK, Next.js, and Svelte docs) into clean, LLM-optimized Markdown.
+- **Smart Source Registry**: Automatically bypasses search engines for the top 20+ frameworks (React, Svelte, Vue, Astro, etc.) and fetches their official documentation directly. 
+- **Readability Fallback**: Ensures reliable extraction even if the primary engine fails.
+
 ---
 
 ## Architecture & Operational Mechanics
@@ -56,21 +61,17 @@ In this mode, GroundTruth provisions a local HTTP proxy that intercepts outbound
 ```mermaid
 sequenceDiagram
     participant Agent as Claude Code
-    participant Proxy as GroundTruth Proxy
-    participant Search as DuckDuckGo
+    participant Proxy as GroundTruth
+    participant Jina as Jina Reader API
     participant API as Anthropic API
 
-    Agent->>Proxy: Send Prompt (POST /v1/messages)
-    Proxy->>Search: Extract stack/query & scrape live docs
-    Search-->>Proxy: Return real-time web context
+    Agent->>Proxy: Send Prompt
+    Proxy->>Jina: Fetch docs (Direct Registry / DDG)
+    Jina-->>Proxy: Return clean Markdown
     Note over Proxy: Injects live context<br/>into System Prompt
     Proxy->>API: Forward mutated request
-    API-->>Agent: Return completion with fresh knowledge
+    API-->>Agent: Return response
 ```
-
-- **Query Extraction**: Parses the user prompt to identify context dependencies.
-- **Data Hydration**: Orchestrates an automated DuckDuckGo search to fetch the most recent documentation. It relies on a deterministic `LRUCache`, TCP keep-alive Pool configurations, and a 429-aware `CircuitBreaker` pattern to safeguard network operations safely.
-- **Payload Mutation**: Mutates the outgoing system prompt to inject the scraped live context before forwarding the request to the Anthropic completion endpoint. (It includes type-guard structures making it safe from undocumented Gemini system changes).
 
 ### 2. File Watcher Mode (Designed for `antigravity` / `gemini`)
 
@@ -79,42 +80,33 @@ For agents that support side-channel context ingestion via dotfiles (like Antigr
 ```mermaid
 flowchart TD
     pkg([package.json]) -->|Parse Dependencies| GT{GroundTruth Watcher}
-    GT -->|Search Stack Queries| DDG[(DuckDuckGo)]
-    DDG -->|Return Live Docs| GT
-    GT -->|Sync periodically| File[~/.gemini/GEMINI.md]
-    File -->|Auto-loaded| Agent(Antigravity Agent)
-    Agent -->|Execute| Prompt[Prompt with Fresh Context]
-
-    classDef core fill:#3B82F6,stroke:#fff,stroke-width:2px,color:#fff;
-    class GT,Agent core;
+    GT -->|Smart Routing| Map{Registry?}
+    Map -->|Yes| Jina[Jina Reader API]
+    Map -->|No| DDG[DuckDuckGo Search] --> Jina
+    Jina -->|Clean Markdown| Gen[Write to ~/.gemini/GEMINI.md]
+    Gen --> Agent(Coding Assistant)
 ```
-
-- **Stack Introspection**: Analyzes the local `package.json` to infer the project's dependency graph.
-- **Intelligent Chunking**: Groups the filtered dependencies in configurable size batches (default 3) and uniquely hashes them to avoid redundant context-fetching loops unless changes are detected.
-- **Automated Polling**: Periodically fetches updated documentation for the detected stack chunks in parallel.
-- **State Persistence**: Hashes are serialized persistently avoiding redundant DuckDuckGo scraping operations across application crashes.
-- **Block-Based Synchronization**: Writes the parsed context discretely into hash-oriented blocks inside `~/.gemini/GEMINI.md`. Native POSIX bindings and intra-device temporary files are leveraged ensuring `Atomic Writes` without EXDEV link errors. Stale contexts are efficiently garbage-collected via regex matching over tracked batch hashes.
 
 ---
 
-### Usage with Claude Code
-```bash
-# Initialize GroundTruth in proxy mode (auto-exports ANTHROPIC_BASE_URL)
-npx @antodevs/groundtruth --claude-code
+## Configuration (`.groundtruth.json`)
 
-# Execute your agent in a separate TTY
-claude
+You can globally or locally configure GroundTruth by creating a `.groundtruth.json` file in your directory:
+
+```json
+{
+  "maxTokens": 4000,
+  "quality": "high",
+  "verbose": true,
+  "sources": [
+    { "url": "https://svelte.dev/docs/kit/introduction", "label": "SvelteKit Docs" }
+  ]
+}
 ```
-> **Note:** The daemon automatically mutates your shell environment (`~/.zshrc`, `~/.bashrc`, `~/.bash_profile`, `~/.config/fish/config.fish`) to route traffic through the localhost proxy.
 
-### Usage with Antigravity / Gemini
-```bash
-cd /workspace/your-project
-
-# Initialize the daemon in file watcher mode
-npx @antodevs/groundtruth --antigravity
-```
-> **Note:** GroundTruth will continuously poll and sync documentation based on your `package.json` manifest.
+- **`maxTokens`**: The maximum length of characters injected for a single page. 
+- **`quality`**: `low`, `medium`, or `high`. Controls how many search results to retrieve and the timeout budget.
+- **`sources`**: Useful for custom, internal, or highly specific documentation that GroundTruth should always inject.
 
 ---
 
@@ -125,24 +117,26 @@ npx @antodevs/groundtruth --antigravity
 | `--claude-code` | Proxy | Initializes HTTP interceptor for Anthropic API payloads. |
 | `--antigravity` | Rules | Initializes background daemon for dotfile synchronization. |
 | `--uninstall` | Cleanup | Removes `ANTHROPIC_BASE_URL` from all shell config files. |
-| `--use-package-json` | Both | Enforces AST/manifest parsing of `package.json` for query generation. |
 | `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
+| `--quality <level>`| Both | `low`, `medium`, or `high` quality preset (Default: `medium`). |
+| `--max-tokens <n>` | Both | Modifies the character limit per injected context block (Default: `4000`). |
 | `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
-| `--batch-size <n>` | Rules | Changes the amount of dependencies per query chunk for block fetching (Default: `3`, Min: `2`, Max: `5`). |
+| `--batch-size <n>` | Rules | Changes the amount of dependencies per query chunk for block fetching. |
+| `--verbose` | Both | Enables verbose logging output. |
 
 ---
 
 ## Benchmark & Comparison
 
-GroundTruth is heavily optimized for zero-configuration deployments and minimal token overhead compared to existing MCP (Model Context Protocol) solutions.
+GroundTruth is optimized for zero-configuration deployments and minimal token overhead compared to existing MCP solutions.
 
-| Feature | GroundTruth | Brave MCP | Playwright MCP | Firecrawl |
-|---------|-------------|-----------|----------------|-----------|
-| **Authentication** | None Required | API Key | None Required | API Key |
-| **Token Overhead** | ~500 tokens | ~800 tokens | ~13,000 tokens | ~800 tokens |
-| **Antigravity Support** | Native | Unsupported | Unsupported | Unsupported |
-| **Runtime Footprint** | < 1MB | < 1MB | ~200MB | < 1MB |
-| **Shell Auto-config** | Automated | Manual | Manual | Manual |
+| Feature | GroundTruth | Jina Reader (Direct) | Crawl4AI / Playwright | Firecrawl |
+|---------|-------------|----------------------|-----------------------|-----------|
+| **Setup Required** | None (1 command) | Scripting needed | High (Docker/Deps) | High (API Key) |
+| **JS Rendering** | ✅ Yes (via Jina) | ✅ Yes | ✅ Yes | ✅ Yes |
+| **Agent Injection** | ✅ Auto (Proxy/File) | ❌ Manual integration | ❌ Manual integration | ❌ Manual integration |
+| **Cost** | Free | Rate limits apply | Free | Paid |
+| **Runtime Footprint** | < 1MB | N/A | ~200MB | N/A |
 
 ---
 
