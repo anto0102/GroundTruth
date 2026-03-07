@@ -3,7 +3,7 @@
  * @description Test suite per GroundTruth — node:test built-in, zero deps.
  * Run: node --test test/test.js
  */
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 // ─── Sanitize ────────────────────────────────────────
@@ -90,8 +90,7 @@ describe('injectBlock', () => {
         assert.ok(content.includes('block-def456'));
     });
 
-    // Cleanup
-    it('cleanup', async () => {
+    after(async () => {
         await unlink(testFile).catch(() => { });
         await unlink(testFile + '.bak').catch(() => { });
     });

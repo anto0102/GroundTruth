@@ -41,6 +41,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
 
     let previousBatchHashes = new Map();
+    let customSourceTimestamps = new Map(); // Map<blockId: string, timestamp: number>
 
     const searchOpts = {
         ddgResults: qualitySettings.ddgResults,
@@ -51,7 +52,9 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
 
     async function updateSkill() {
         if (previousBatchHashes.size === 0) {
-            previousBatchHashes = await loadBatchState(version);
+            const state = await loadBatchState(version);
+            previousBatchHashes = state.hashes;
+            customSourceTimestamps = state.customTs;
         }
         const deps = await readPackageDeps();
         if (!deps || deps.length === 0) {
@@ -109,7 +112,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                     }
 
                     const now = new Date();
-                    const nowStr = now.toLocaleString('it-IT');
+                    const nowStr = now.toLocaleString(process.env.GROUNDTRUTH_LOCALE || undefined);
                     const batchTitle = batch.map(b => b.split(' ')[0]).join(', ');
 
                     let globalMd = `## Live Context — ${batchTitle} (${nowStr})\n`;
@@ -162,10 +165,10 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
             const CUSTOM_SOURCE_TTL_MS = 60 * 60 * 1000;
             const customWork = customSources.map(async (src) => {
                 const blockId = 'src_' + Buffer.from(src.url).toString('base64url').slice(0, 8);
-                const tsKey = 'src_ts_' + blockId;
+
                 activeBlockIds.add(blockId);
 
-                const lastFetchTime = previousBatchHashes.get(tsKey) || 0;
+                const lastFetchTime = customSourceTimestamps.get(blockId) || 0;
                 if ((Date.now() - lastFetchTime) < CUSTOM_SOURCE_TTL_MS) {
                     skippedCount++;
                     return;
@@ -182,7 +185,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                             globalContent: `## ${srcLabel}\n${sanitizeWebContent(text, 500)}\n`,
                             workspaceContent: md
                         }]);
-                        previousBatchHashes.set(tsKey, Date.now());
+                        customSourceTimestamps.set(blockId, Date.now());
                         updatedCount++;
                         log(LOG_REFRESH, chalk.cyan, `custom source updated → ${srcLabel}`);
                     }
@@ -196,7 +199,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
         await removeStaleBlocks(globalPath, activeBlockIds);
         await removeStaleBlocks(workspacePath, activeBlockIds);
 
-        await saveBatchState(previousBatchHashes, version);
+        await saveBatchState(previousBatchHashes, customSourceTimestamps, version);
 
         log(LOG_REFRESH, chalk.gray, `cycle done → ${activeBlockIds.size} blocks active, ${updatedCount} updated, ${skippedCount} skipped, ${failedCount} errors`);
     }
@@ -221,5 +224,9 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     }
 
     runWatcherCycle();
-    setInterval(runWatcherCycle, intervalMinutes * 60 * 1000);
+    const handle = setInterval(runWatcherCycle, intervalMinutes * 60 * 1000);
+
+    return {
+        stop: () => clearInterval(handle)
+    };
 }

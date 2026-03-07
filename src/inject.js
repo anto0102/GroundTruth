@@ -89,23 +89,25 @@ export async function injectBlock(filePath, content, blockId) {
  */
 export async function removeStaleBlocks(filePath, activeBlockIds) {
     if (!existsSync(filePath)) return;
-    let fileContent = await fs.readFile(filePath, 'utf8');
-    const regex = /<!-- groundtruth:block-(\w+):start -->[\s\S]*?<!-- groundtruth:block-\1:end -->/g;
+    return withFileLock(filePath, async () => {
+        let fileContent = await fs.readFile(filePath, 'utf8');
+        const regex = /<!-- groundtruth:block-(\w+):start -->[\s\S]*?<!-- groundtruth:block-\1:end -->/g;
 
-    let modified = false;
-    fileContent = fileContent.replace(regex, (match, blockId) => {
-        if (!activeBlockIds.has(blockId)) {
-            log(LOG_REFRESH, chalk.yellow, chalk.white(`removed stale block ${blockId} from GEMINI.md`));
-            modified = true;
-            return '';
+        let modified = false;
+        fileContent = fileContent.replace(regex, (match, blockId) => {
+            if (!activeBlockIds.has(blockId)) {
+                log(LOG_REFRESH, chalk.yellow, chalk.white(`removed stale block ${blockId} from GEMINI.md`));
+                modified = true;
+                return '';
+            }
+            return match;
+        });
+
+        if (modified) {
+            fileContent = fileContent.replace(/\n{3,}/g, '\n\n').trim() + '\n';
+            await atomicWrite(filePath, fileContent);
         }
-        return match;
     });
-
-    if (modified) {
-        fileContent = fileContent.replace(/\n{3,}/g, '\n\n').trim() + '\n';
-        await atomicWrite(filePath, fileContent);
-    }
 }
 
 /**

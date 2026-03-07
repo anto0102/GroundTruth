@@ -46,6 +46,7 @@ import { maxTokens, qualitySettings, verbose } from './cli.js';
 export async function createServer(usePackageJson) {
     let packageQueryCache = null;
     let cacheStale = true;
+    let refreshPromise = null;
 
     if (usePackageJson) {
         const depEntries = await readPackageDeps();
@@ -65,11 +66,17 @@ export async function createServer(usePackageJson) {
 
     const server = http.createServer(async (req, res) => {
         if (usePackageJson && cacheStale) {
-            const depEntries = await readPackageDeps();
-            if (depEntries) {
-                packageQueryCache = buildQuery(depEntries);
-                cacheStale = false;
+            if (!refreshPromise) {
+                refreshPromise = readPackageDeps().then(depEntries => {
+                    if (depEntries) {
+                        packageQueryCache = buildQuery(depEntries);
+                    }
+                    cacheStale = false;
+                }).finally(() => {
+                    refreshPromise = null;
+                });
             }
+            await refreshPromise;
         }
         if (req.method !== 'POST') { res.writeHead(404); res.end(); return; }
 
@@ -84,34 +91,18 @@ export async function createServer(usePackageJson) {
 
         try {
             const MAX_PAYLOAD_SIZE = 10 * 1024 * 1024; // 10MB limit
-            let rawBody;
-            if (req.headers['content-length']) {
-                const len = parseInt(req.headers['content-length'], 10);
-                rawBody = Buffer.allocUnsafe(len);
-                let offset = 0;
-                for await (const chunk of req) {
-                    chunk.copy(rawBody, offset);
-                    offset += chunk.length;
-                    if (offset > MAX_PAYLOAD_SIZE) {
-                        res.writeHead(413); res.end('Payload Too Large');
-                        req.destroy(); // Fix TCP Stream Leak
-                        return;
-                    }
+            let chunks = [];
+            let bodyLength = 0;
+            for await (const chunk of req) {
+                bodyLength += chunk.length;
+                if (bodyLength > MAX_PAYLOAD_SIZE) {
+                    res.writeHead(413); res.end('Payload Too Large');
+                    req.destroy(); // Fix TCP Stream Leak
+                    return;
                 }
-            } else {
-                let chunks = [];
-                let bodyLength = 0;
-                for await (const chunk of req) {
-                    bodyLength += chunk.length;
-                    if (bodyLength > MAX_PAYLOAD_SIZE) {
-                        res.writeHead(413); res.end('Payload Too Large');
-                        req.destroy(); // Fix TCP Stream Leak
-                        return;
-                    }
-                    chunks.push(chunk);
-                }
-                rawBody = Buffer.concat(chunks);
+                chunks.push(chunk);
             }
+            const rawBody = Buffer.concat(chunks);
 
             /** @type {ProxyPayload} */
             let parsedBody;

@@ -13,7 +13,9 @@ import { startWatcher } from './src/watcher.js';
 // ─── Execution Logic ─────────────────────────────────
 
 const runAntigravity = () => {
-  startWatcher({ intervalMinutes, usePackageJson, batchSize });
+  const watcher = startWatcher({ intervalMinutes, usePackageJson, batchSize });
+  process.on('SIGTERM', () => { watcher.stop(); process.exit(0); });
+  process.on('SIGINT', () => { watcher.stop(); process.exit(0); });
 };
 
 const runClaudeCode = async () => {

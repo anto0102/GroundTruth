@@ -17,6 +17,14 @@ const DANGEROUS_PATTERNS = [
     /```system/gi,
     /ASSISTANT:\s/gi,
     /HUMAN:\s/gi,
+    /\bact\s+as\s+(a|an)\b/gi,
+    /pretend\s+(you\s+are|to\s+be)/gi,
+    /simulate\s+(a|an)\b/gi,
+    /<\|system\|>/gi,
+    /<<SYS>>/gi,
+    /\[\/INST\]/gi,
+    /###\s*(instruction|system|prompt)/gi,
+    /override\s+(your\s+)?(previous\s+)?(instructions?|constraints?|rules?)/gi,
 ];
 
 const NOISE_PATTERNS = [

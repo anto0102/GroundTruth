@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createHash } from 'crypto';
 import { chalk, log, LOG_WARN } from './logger.js';
+import { resolveAlias } from './aliases.js';
 
 // ─── Logica Dipendenze ───────────────────────────────
 
@@ -37,8 +38,7 @@ export async function readPackageDeps() {
                     return true;
                 })
                 .map(([n, v]) => {
-                    let cleanName = n;
-                    if (n === '@sveltejs/kit') cleanName = 'sveltekit';
+                    let cleanName = resolveAlias(n);
                     let cleanVersion = String(v).replace(/[\^~>=<]/g, '').split('.').slice(0, 2).join('.');
                     return `${cleanName} ${cleanVersion}`;
                 });

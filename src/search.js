@@ -205,13 +205,9 @@ export async function webSearch(query, parallel = false, opts = {}) {
     }
 
     let results, userAgent;
-    try {
-        const res = await ddgCircuit.execute(() => doSearch(query, ddgResults));
-        results = res.results;
-        userAgent = res.userAgent;
-    } catch (err) {
-        throw err;
-    }
+    const res = await ddgCircuit.execute(() => doSearch(query, ddgResults));
+    results = res.results;
+    userAgent = res.userAgent;
 
     const fetchOpts = { jinaTimeout, maxLen, verbose };
     let pageText = '';

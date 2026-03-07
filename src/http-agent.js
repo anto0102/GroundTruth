@@ -8,6 +8,9 @@ const globalAgent = new Agent({
     connections: 10,
     pipelining: 1,
 });
+// SIDE EFFECT INTENZIONALE: modifica il dispatcher globale di undici/fetch
+// per tutto il processo. Importare questo modulo in index.js prima di qualsiasi
+// altra operazione di rete.
 setGlobalDispatcher(globalAgent);
 
 export { globalAgent };

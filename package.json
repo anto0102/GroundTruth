@@ -38,16 +38,18 @@
     "start": "node dist/index.js",
     "dev": "node --watch index.js",
     "build": "tsup",
-    "release": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version patch && npm run build && git push origin main --tags && npm publish",
-    "release:minor": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version minor && npm run build && git push origin main --tags && npm publish"
+    "release": "git add -u && git commit -m \"chore: auto-commit before release\" || true && npm version patch && npm run build && git push origin main --tags && npm publish",
+    "release:minor": "git add -u && git commit -m \"chore: auto-commit before release\" || true && npm version minor && npm run build && git push origin main --tags && npm publish"
   },
-  "devDependencies": {
+  "dependencies": {
     "@clack/prompts": "^1.1.0",
     "@mozilla/readability": "^0.6.0",
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
+    "linkedom": "^0.18.12"
+  },
+  "devDependencies": {
     "esbuild": "^0.27.3",
-    "linkedom": "^0.18.12",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }

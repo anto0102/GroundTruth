@@ -18,18 +18,21 @@ const STATE_FILE = path.join(STATE_DIR, 'watcher-state.json');
  */
 export async function loadBatchState(currentVersion) {
     try {
-        if (!existsSync(STATE_FILE)) return new Map();
+        if (!existsSync(STATE_FILE)) return { hashes: new Map(), customTs: new Map() };
         const data = await readFile(STATE_FILE, 'utf8');
         const state = JSON.parse(data);
 
         // Invalida la cache se la versione è differente (forza refresh dopo update)
         if (state.version !== currentVersion) {
-            return new Map();
+            return { hashes: new Map(), customTs: new Map() };
         }
 
-        return new Map(Object.entries(state.hashes || {}));
+        return {
+            hashes: new Map(Object.entries(state.hashes || {})),
+            customTs: new Map(Object.entries(state.customTs || {}))
+        };
     } catch {
-        return new Map();
+        return { hashes: new Map(), customTs: new Map() };
     }
 }
 
@@ -39,12 +42,13 @@ export async function loadBatchState(currentVersion) {
  * @param {string} version - Versione attuale dell'applicazione.
  * @returns {Promise<void>} 
  */
-export async function saveBatchState(map, version) {
+export async function saveBatchState(hashesMap, customTsMap, version) {
     await mkdir(STATE_DIR, { recursive: true });
     const state = {
         version: version,
         updatedAt: new Date().toISOString(),
-        hashes: Object.fromEntries(map)
+        hashes: Object.fromEntries(hashesMap),
+        customTs: Object.fromEntries(customTsMap)
     };
     await atomicWrite(STATE_FILE, JSON.stringify(state, null, 2), { backup: false });
 }

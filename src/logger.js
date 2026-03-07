@@ -20,7 +20,8 @@ export const LOG_STAR = '✻';
  * @returns {string} Timestamp grigio
  */
 export function ts() {
-    return chalk.gray(new Date().toLocaleTimeString('it-IT'));
+    const locale = process.env.GROUNDTRUTH_LOCALE || undefined;
+    return chalk.gray(new Date().toLocaleTimeString(locale));
 }
 
 /**

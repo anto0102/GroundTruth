@@ -4,6 +4,7 @@
  */
 
 import { LRUCache } from './cache.js';
+import { resolveAlias } from './aliases.js';
 
 const REGISTRY_API_URL = 'https://groundtruth-registry.antony-flex01.workers.dev/lookup';
 
@@ -22,7 +23,7 @@ export async function lookupRegistryUrl(depName) {
     let name = depName.split(' ')[0].toLowerCase().trim();
 
     // Alias mapping per framework comuni con scope npm
-    if (name === '@sveltejs/kit') name = 'sveltekit';
+    name = resolveAlias(name);
 
 
     // Check hit in memoria (ritorna subito)
