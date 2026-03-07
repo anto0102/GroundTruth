@@ -12,110 +12,31 @@ import { atomicWrite } from './utils/atomic-write.js';
 // ─── Setup shell environment ─────────────────────────
 
 /**
- * @description Applica environment variables a vari rc profile bash fish unix
+ * @description Suggerisce il setup dell'environment variables se non settate correttamente.
  * @param {number} p - HTTP default porta su local instance target
- * @returns {Promise<void>} Operazione asincrona
+ * @returns {Promise<void>}
  */
 export async function autoSetEnv(p) {
-    if (process.platform === 'win32') return;
-    try {
-        const targetUrl = `http://localhost:${p}`;
-        if (process.env.ANTHROPIC_BASE_URL === targetUrl) return;
+    const targetUrl = `http://localhost:${p}`;
 
-        const homeDir = os.homedir();
-        const fishConfigFile = path.join(homeDir, '.config', 'fish', 'config.fish');
-        const isFish = process.env.SHELL?.includes('fish') || existsSync(fishConfigFile);
-        let foundAny = false;
-        const modifiedFiles = [];
-
-        if (isFish) {
-            await fs.mkdir(path.dirname(fishConfigFile), { recursive: true });
-            foundAny = true;
-            try {
-                let content = existsSync(fishConfigFile) ? await fs.readFile(fishConfigFile, 'utf8') : '';
-                const lines = content ? content.split('\n') : [];
-                let modified = false, foundExport = false;
-
-                const newLines = lines.map(line => {
-                    if (line.trim().startsWith('set -gx ANTHROPIC_BASE_URL')) {
-                        foundExport = true;
-                        if (line.trim() !== `set -gx ANTHROPIC_BASE_URL ${targetUrl}`) { modified = true; return `set -gx ANTHROPIC_BASE_URL ${targetUrl}`; }
-                    }
-                    return line;
-                });
-
-                if (!foundExport) {
-                    if (newLines.length > 0 && newLines[newLines.length - 1] === '') {
-                        newLines[newLines.length - 1] = `set -gx ANTHROPIC_BASE_URL ${targetUrl}`;
-                        newLines.push('');
-                    } else {
-                        newLines.push(`set -gx ANTHROPIC_BASE_URL ${targetUrl}`);
-                    }
-                    modified = true;
-                }
-
-                if (modified) {
-                    await atomicWrite(fishConfigFile, newLines.join('\n'));
-                    modifiedFiles.push(fishConfigFile);
-                }
-            } catch (e) {
-                log(LOG_WARN, chalk.yellow, chalk.white('cannot write fish config') + `  →  ${chalk.yellow(e.message)}`);
-            }
-        } else {
-            const shellFiles = ['.zshrc', '.bashrc', '.bash_profile', '.profile'].map(f => path.join(homeDir, f));
-            for (const file of shellFiles) {
-                if (!existsSync(file)) continue;
-                foundAny = true;
-                try {
-                    const content = await fs.readFile(file, 'utf8');
-                    const lines = content.split('\n');
-                    let modified = false, foundExport = false;
-
-                    const newLines = lines.map(line => {
-                        if (line.trim().startsWith('export ANTHROPIC_BASE_URL=')) {
-                            foundExport = true;
-                            if (line.trim() !== `export ANTHROPIC_BASE_URL=${targetUrl}`) { modified = true; return `export ANTHROPIC_BASE_URL=${targetUrl}`; }
-                        }
-                        return line;
-                    });
-
-                    if (!foundExport) {
-                        if (newLines.length > 0 && newLines[newLines.length - 1] === '') {
-                            newLines[newLines.length - 1] = `export ANTHROPIC_BASE_URL=${targetUrl}`;
-                            newLines.push('');
-                        } else {
-                            newLines.push(`export ANTHROPIC_BASE_URL=${targetUrl}`);
-                        }
-                        modified = true;
-                    }
-
-                    if (modified) {
-                        await atomicWrite(file, newLines.join('\n'));
-                        modifiedFiles.push(file);
-                    }
-                } catch (e) {
-                    log(LOG_WARN, chalk.yellow, chalk.white(`cannot write ${path.basename(file)}`) + `  →  ${chalk.yellow(e.message)}`);
-                }
-            }
-        }
-
-        if (!foundAny) {
-            const hint = isFish
-                ? `set -gx ANTHROPIC_BASE_URL ${targetUrl}`
-                : `export ANTHROPIC_BASE_URL=${targetUrl}`;
-            log(LOG_WARN, chalk.yellow, chalk.white('no shell config found') + `  →  ${chalk.yellow('add manually: ' + hint)}`);
-        } else if (modifiedFiles.length > 0) {
-            // Segnala write su standard node path a console utente post process
-            modifiedFiles.forEach(file => {
-                const rel = file.replace(homeDir, '~');
-                log(LOG_OK, chalk.green, chalk.white('ANTHROPIC_BASE_URL written to') + ' ' + chalk.white(rel));
-            });
-        }
-
-        process.env.ANTHROPIC_BASE_URL = targetUrl;
-    } catch (err) {
-        log(LOG_WARN, chalk.yellow, chalk.white('env setup error') + `  →  ${chalk.yellow(err.message)}`);
+    // Se è già settata correttamente, non facciamo nulla
+    if (process.env.ANTHROPIC_BASE_URL === targetUrl) {
+        return;
     }
+
+    const homeDir = os.homedir();
+    const fishConfigFile = path.join(homeDir, '.config', 'fish', 'config.fish');
+    const isFish = process.env.SHELL?.includes('fish') || existsSync(fishConfigFile);
+
+    const hint = isFish
+        ? `set -gx ANTHROPIC_BASE_URL ${targetUrl}`
+        : `export ANTHROPIC_BASE_URL=${targetUrl}`;
+
+    log(LOG_WARN, chalk.yellow, chalk.white('ANTHROPIC_BASE_URL not set to GroundTruth') + `  →  ${chalk.yellow(targetUrl)}`);
+    log(LOG_WARN, chalk.yellow, chalk.white('Add this to your shell profile to use Claude Code:') + `\n\n    ${chalk.cyan.bold(hint)}\n`);
+
+    // Impostiamo per la sessione corrente comunque
+    process.env.ANTHROPIC_BASE_URL = targetUrl;
 }
 
 /**

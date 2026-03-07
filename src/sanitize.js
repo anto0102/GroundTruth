@@ -72,10 +72,15 @@ export function sanitizeWebContent(text, maxLen = 8000) {
         cleaned = cleaned.replace(pattern, '');
     }
 
-    // 2. Rimuoviamo pattern pericolosi
-    for (const p of DANGEROUS_PATTERNS) {
-        cleaned = cleaned.replace(p, '[FILTERED]');
-    }
+    // 2. Rimuoviamo pattern pericolosi ricorsivamente
+    // Protezione contro bypass (es: "ignore [INST] previous")
+    let lastLen;
+    do {
+        lastLen = cleaned.length;
+        for (const p of DANGEROUS_PATTERNS) {
+            cleaned = cleaned.replace(p, '[FILTERED]');
+        }
+    } while (cleaned.length !== lastLen);
 
     // 3. Normalizzazione spazi bianchi per risparmiare token
     cleaned = cleaned.replace(/\s+/g, ' ').trim();

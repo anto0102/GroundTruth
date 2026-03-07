@@ -60,7 +60,13 @@ export async function fetchPageContent(url, userAgent, opts = {}) {
             headers: { 'User-Agent': userAgent }
         });
         if (pageRes.ok) {
-            const document = new DOMParser().parseFromString(await pageRes.text(), 'text/html');
+            const htmlText = await pageRes.text();
+            // Protect Event Loop: discard if HTML is too large (> 2MB)
+            if (htmlText.length > 2 * 1024 * 1024) {
+                if (verbose) console.log(`    [readability] ✗ ${url} → HTML too large (${htmlText.length} chars)`);
+                return '';
+            }
+            const document = new DOMParser().parseFromString(htmlText, 'text/html');
             let text = '';
             try {
                 const article = new Readability(document).parse();
@@ -134,13 +140,37 @@ export function resolveDDGUrl(href) {
  */
 async function doSearch(query, resultsLimit = 3) {
     const userAgent = getRandomUA();
+    // Use the "html" version for more stable scraping, but with better error handling
     const searchRes = await fetch(
-        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
-        { signal: AbortSignal.timeout(5000), headers: { 'User-Agent': userAgent } }
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}&s=0&dc=0&v=l&kl=wt-wt`,
+        {
+            signal: AbortSignal.timeout(8000),
+            headers: {
+                'User-Agent': userAgent,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Referer': 'https://duckduckgo.com/',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
+                'Sec-Fetch-User': '?1'
+            }
+        }
     );
-    if (!searchRes.ok) throw new Error(`DDG ${searchRes.status}`);
+    if (!searchRes.ok) {
+        if (searchRes.status === 403 || searchRes.status === 429) {
+            throw new Error(`DDG Blocked (${searchRes.status})`);
+        }
+        throw new Error(`DDG ${searchRes.status}`);
+    }
 
-    const $ = cheerio.load(await searchRes.text());
+    const html = await searchRes.text();
+    if (html.includes('ddg-captcha') || html.includes('captcha')) {
+        throw new Error('DDG Captcha Detected');
+    }
+
+    const $ = cheerio.load(html);
     let results = [];
     $('.result__body').each((i, el) => {
         const title = $(el).find('.result__title').text().trim();

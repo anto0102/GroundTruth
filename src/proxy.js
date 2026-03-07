@@ -13,6 +13,29 @@ import { watch } from 'fs';
 import path from 'path';
 import { maxTokens, qualitySettings, verbose } from './cli.js';
 
+/**
+ * @typedef {Object} AnthropicMessage
+ * @property {string} role
+ * @property {string | Array<{type: string, text?: string}>} content
+ *
+ * @typedef {Object} AnthropicPayload
+ * @property {AnthropicMessage[]} [messages]
+ * @property {string | Array<{type: string, text?: string}>} [system]
+ *
+ * @typedef {Object} GeminiPart
+ * @property {string} [text]
+ *
+ * @typedef {Object} GeminiContent
+ * @property {string} role
+ * @property {GeminiPart[]} parts
+ *
+ * @typedef {Object} GeminiPayload
+ * @property {GeminiContent[]} [contents]
+ * @property {{role: string, parts: GeminiPart[]}} [systemInstruction]
+ *
+ * @typedef {AnthropicPayload & GeminiPayload & Record<string, any>} ProxyPayload
+ */
+
 // ─── HTTP Node server daemon ─────────────────────────
 
 /**
@@ -61,19 +84,36 @@ export async function createServer(usePackageJson) {
 
         try {
             const MAX_PAYLOAD_SIZE = 10 * 1024 * 1024; // 10MB limit
-            let bodyChunks = [];
-            let bodyLength = 0;
-            for await (const chunk of req) {
-                bodyLength += chunk.length;
-                if (bodyLength > MAX_PAYLOAD_SIZE) {
-                    res.writeHead(413, { 'Content-Type': 'text/plain' });
-                    res.end('Payload Too Large');
-                    return;
+            let rawBody;
+            if (req.headers['content-length']) {
+                const len = parseInt(req.headers['content-length'], 10);
+                rawBody = Buffer.allocUnsafe(len);
+                let offset = 0;
+                for await (const chunk of req) {
+                    chunk.copy(rawBody, offset);
+                    offset += chunk.length;
+                    if (offset > MAX_PAYLOAD_SIZE) {
+                        res.writeHead(413); res.end('Payload Too Large');
+                        req.destroy(); // Fix TCP Stream Leak
+                        return;
+                    }
                 }
-                bodyChunks.push(chunk);
+            } else {
+                let chunks = [];
+                let bodyLength = 0;
+                for await (const chunk of req) {
+                    bodyLength += chunk.length;
+                    if (bodyLength > MAX_PAYLOAD_SIZE) {
+                        res.writeHead(413); res.end('Payload Too Large');
+                        req.destroy(); // Fix TCP Stream Leak
+                        return;
+                    }
+                    chunks.push(chunk);
+                }
+                rawBody = Buffer.concat(chunks);
             }
-            const rawBody = Buffer.concat(bodyChunks);
 
+            /** @type {ProxyPayload} */
             let parsedBody;
             try {
                 parsedBody = JSON.parse(rawBody.toString('utf8'));
@@ -186,6 +226,12 @@ export async function createServer(usePackageJson) {
                 res.writeHead(proxyRes.statusCode, responseHeaders);
                 proxyRes.pipe(res);
             });
+
+            // Fix Orphaned Sockets: stop upstream if client disconnects
+            req.on('close', () => {
+                if (!res.writableEnded) proxyReq.destroy();
+            });
+
             proxyReq.on('error', () => { if (!res.headersSent) { res.writeHead(502); res.end('Bad Gateway'); } });
             proxyReq.write(reqBodyStr);
             proxyReq.end();

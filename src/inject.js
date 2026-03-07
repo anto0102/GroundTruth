@@ -9,12 +9,40 @@ import os from 'os';
 import { chalk, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { atomicWrite } from './utils/atomic-write.js';
 
-const fileLocks = new Map();
+const LOCK_RETRY_DELAY = 100;
+const LOCK_MAX_RETRIES = 50; // Total ~5 seconds
+
 async function withFileLock(filePath, fn) {
-    const previous = fileLocks.get(filePath) || Promise.resolve();
-    const next = previous.then(fn, fn);
-    fileLocks.set(filePath, next.catch(() => { }));
-    return next;
+    const lockPath = filePath + '.lock';
+    let acquired = false;
+
+    for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
+        try {
+            const handle = await fs.open(lockPath, 'wx');
+            await handle.close();
+            acquired = true;
+            break;
+        } catch (err) {
+            if (err.code !== 'EEXIST') throw err;
+            // Check if lock exists but is stale (older than 10 seconds)
+            try {
+                const stats = await fs.stat(lockPath);
+                if (Date.now() - stats.mtimeMs > 10000) {
+                    await fs.unlink(lockPath).catch(() => { });
+                    continue; // Retry after removing stale lock
+                }
+            } catch (_) { }
+            await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY));
+        }
+    }
+
+    if (!acquired) throw new Error(`Could not acquire lock for ${filePath}`);
+
+    try {
+        return await fn();
+    } finally {
+        await fs.unlink(lockPath).catch(() => { });
+    }
 }
 
 // ─── Document injection rules ────────────────────────
@@ -91,7 +119,14 @@ export async function updateGeminiFiles(blocks) {
     await fs.mkdir(rulesDir, { recursive: true });
     const skillFile = path.join(rulesDir, 'GEMINI.md');
 
-    const globalRulesDir = path.join(homeDir, '.gemini');
+    let globalBaseDir;
+    if (process.platform === 'win32' && process.env.APPDATA) {
+        globalBaseDir = path.join(process.env.APPDATA, 'antigravity');
+    } else {
+        globalBaseDir = path.join(homeDir, '.gemini');
+    }
+
+    const globalRulesDir = globalBaseDir;
     await fs.mkdir(globalRulesDir, { recursive: true });
     const globalSkillFile = path.join(globalRulesDir, 'GEMINI.md');
 
