@@ -41,12 +41,14 @@ Current-generation AI coding assistants (Claude Code, Antigravity, Cursor) suffe
 
 **GroundTruth** acts as a transparent middleware layer that resolves this by dynamically injecting real-time, stack-specific documentation directly into the agent's context window prior to inference.
 
-### The v0.2.0 Engine: Jina Reader & Source Registry
+### The v0.2 Engine: Global Cloud Intelligence
 
-GroundTruth v0.2.0 introduces a massive upgrade to content quality:
-- **Jina Reader API Integration**: Parses dynamic, JavaScript-rendered SPAs (like Vercel AI SDK, Next.js, and Svelte docs) into clean, LLM-optimized Markdown.
-- **Smart Source Registry**: Automatically bypasses search engines for the top 20+ frameworks (React, Svelte, Vue, Astro, etc.) and fetches their official documentation directly. 
-- **Readability Fallback**: Ensures reliable extraction even if the primary engine fails.
+GroundTruth v0.2 introduces a paradigm shift in context quality and scalability:
+- **Global Cloud Registry**: Bypasses search engines by querying a high-performance **Cloudflare Worker** registry. It covers the top ~200 frameworks with "Golden List" manual precision and over **10,000+ npm packages** via automated background indexing.
+- **Jina Reader API Integration**: Seamlessly parses dynamic, JavaScript-rendered SPAs (like Vercel AI SDK, Next.js, and Svelte docs) into clean, LLM-optimized Markdown.
+- **Automated "Gentle" Indexer**: A remote bot periodically synchronizes the latest documentation URLs from the npm ecosystem directly to the cloud registry, ensuring your context is never stale.
+- **Zero-Config Resilience**: Operates locally with a strictly enforced 1.5s cloud timeout. If the registry is unreachable, it silently falls back to local Readability extraction or search.
+
 
 ---
 
