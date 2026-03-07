@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * @module index
  * @description Entry point runtime groundtruth delegazione CLI o proxy flow logic.

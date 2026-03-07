@@ -3,10 +3,9 @@
  * @description Parsing degli argomenti CLI process.argv e logica help screen.
  */
 import { chalk } from './logger.js';
-import { createRequire } from 'module';
 import { loadConfig, resolveQuality } from './config.js';
-
-const { version } = createRequire(import.meta.url)('../package.json');
+import pkg from '../package.json' with { type: 'json' };
+const { version } = pkg;
 
 // ─── Arg Parsers ─────────────────────────────────────
 

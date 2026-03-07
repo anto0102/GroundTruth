@@ -27,26 +27,28 @@
     "node": ">=18.0.0"
   },
   "files": [
-    "index.js",
-    "src/",
-    "assets/",
+    "dist",
     "README.md",
     "LICENSE"
   ],
   "bin": {
-    "groundtruth": "index.js"
+    "groundtruth": "dist/index.js"
   },
   "scripts": {
-    "start": "node index.js",
+    "start": "node dist/index.js",
     "dev": "node --watch index.js",
-    "release": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version patch && git push origin main --tags && npm publish",
-    "release:minor": "git add . && git commit -m \"chore: auto-commit before release\" || true && npm version minor && git push origin main --tags && npm publish"
+    "build": "tsup",
+    "release": "npm run build && git add . && git commit -m \"chore: auto-commit before release\" || true && npm version patch && git push origin main --tags && npm publish",
+    "release:minor": "npm run build && git add . && git commit -m \"chore: auto-commit before release\" || true && npm version minor && git push origin main --tags && npm publish"
   },
-  "dependencies": {
+  "devDependencies": {
+    "@clack/prompts": "^1.1.0",
     "@mozilla/readability": "^0.6.0",
-    "chalk": "^5.3.0",
+    "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
+    "esbuild": "^0.27.3",
     "linkedom": "^0.18.12",
-    "@clack/prompts": "^0.9.1"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   }
 }

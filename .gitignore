@@ -10,3 +10,4 @@ specification.yaml
 Workerdb.js
 workerupdater.js
 *.log
+dist/
