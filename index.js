@@ -23,7 +23,7 @@ const runClaudeCode = async () => {
   const startServer = (p) => {
     server.on('error', (e) => (e.code === 'EADDRINUSE' ? startServer(p + 1) : console.error(chalk.red(`Server error: ${e.message}`))));
     server.listen(p, async () => {
-      console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[claude-code mode]')}\n`);
+      console.log(`\n  ${chalk.white(chalk.bold('GroundTruth'))}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[claude-code mode]')}\n`);
       console.log(label('◆', 'proxy', `localhost:${p}`));
       console.log(label('◆', 'anthropic', '/v1/messages'));
       console.log(label('◆', 'context', 'DuckDuckGo → live'));
@@ -35,7 +35,7 @@ const runClaudeCode = async () => {
 };
 
 const runUninstall = async () => {
-  console.log(`\n  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[uninstall]')}\n`);
+  console.log(`\n  ${chalk.white(chalk.bold('GroundTruth'))}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[uninstall]')}\n`);
   await removeEnv();
   process.exit(0);
 };
@@ -43,7 +43,7 @@ const runUninstall = async () => {
 // ─── Dispatcher start app logic ──────────────────────
 
 if (interactiveMode) {
-  intro(`${chalk.white.bold('GroundTruth')} ${chalk.gray(`v${version}`)}`);
+  intro(`${chalk.white(chalk.bold('GroundTruth'))} ${chalk.gray(`v${version}`)}`);
 
   const mode = await select({
     message: 'Select execution mode:',

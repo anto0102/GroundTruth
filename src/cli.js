@@ -4,8 +4,8 @@
  */
 import { chalk } from './logger.js';
 import { loadConfig, resolveQuality } from './config.js';
-import pkg from '../package.json' with { type: 'json' };
-const { version } = pkg;
+
+const version = __APP_VERSION__;
 
 // ─── Arg Parsers ─────────────────────────────────────
 

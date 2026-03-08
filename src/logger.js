@@ -2,7 +2,7 @@
  * @module logger
  * @description Utilities per log formattati con chalk e timestamp.
  */
-import chalk from 'chalk';
+import chalk from 'picocolors';
 
 // ─── Constants ───────────────────────────────────────
 

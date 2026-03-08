@@ -64,6 +64,9 @@ const NOISE_PATTERNS = [
 ];
 
 
+const COMBINED_NOISE = new RegExp(NOISE_PATTERNS.map(r => r.source).join('|'), 'gi');
+
+
 /**
  * @description Filtra pattern pericolosi e rumore di navigazione dal testo web scrappato.
  * @param   {string} text - Testo raw proveniente da web scraping
@@ -75,10 +78,8 @@ export function sanitizeWebContent(text, maxLen = 8000) {
 
     let cleaned = text;
 
-    // 1. Rimuoviamo il rumore di navigazione
-    for (const pattern of NOISE_PATTERNS) {
-        cleaned = cleaned.replace(pattern, '');
-    }
+    // 1. Rimuoviamo il rumore di navigazione (V8 Optimized)
+    cleaned = cleaned.replace(COMBINED_NOISE, '');
 
     // 2. Rimuoviamo pattern pericolosi ricorsivamente
     // Protezione contro bypass (es: "ignore [INST] previous")

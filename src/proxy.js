@@ -170,7 +170,7 @@ export async function createServer(usePackageJson) {
             const ms = Date.now() - t0;
 
             if (didInject) {
-                log(LOG_BOLT, chalk.cyan, chalk.white(shortMsg.slice(0, 50) + (shortMsg.length > 50 ? '…' : '')) + `  →  ${chalk.cyan.bold(String(resultsCount))} ${chalk.cyan('results')}  ${chalk.gray(ms + 'ms')}`);
+                log(LOG_BOLT, chalk.cyan, chalk.white(shortMsg.slice(0, 50) + (shortMsg.length > 50 ? '…' : '')) + `  →  ${chalk.cyan(chalk.bold(String(resultsCount)))} ${chalk.cyan('results')}  ${chalk.gray(ms + 'ms')}`);
 
                 if (protocol === 'ANTHROPIC') {
                     if (parsedBody.system) {

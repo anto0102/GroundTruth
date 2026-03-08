@@ -24,7 +24,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
     const skillFilePretty = '.gemini/GEMINI.md';
 
     console.log();
-    console.log(`  ${chalk.white.bold('GroundTruth')}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[antigravity mode]')}`);
+    console.log(`  ${chalk.white(chalk.bold('GroundTruth'))}  ${chalk.gray(`v${version}`)}  ${chalk.gray('[antigravity mode]')}`);
     console.log();
     console.log(label('◆', 'global', globalSkillFilePretty));
     console.log(label('◆', 'workspace', skillFilePretty));

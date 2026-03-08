@@ -2,7 +2,6 @@
  * @module search
  * @description Logica di scraping web: Jina Reader → fallback Readability, registry bypass, DDG search.
  */
-import * as cheerio from 'cheerio';
 import { Readability } from '@mozilla/readability';
 import { DOMParser } from 'linkedom';
 import { searchCache } from './cache.js';
@@ -170,15 +169,24 @@ async function doSearch(query, resultsLimit = 3) {
         throw new Error('DDG Captcha Detected');
     }
 
-    const $ = cheerio.load(html);
+    const document = new DOMParser().parseFromString(html, 'text/html');
     let results = [];
-    $('.result__body').each((i, el) => {
-        const title = $(el).find('.result__title').text().trim();
-        const snippet = $(el).find('.result__snippet').text().trim();
-        let rawUrl = $(el).find('.result__url').attr('href') || $(el).find('a.result__url').attr('href');
+    const elements = document.querySelectorAll('.result__body');
+
+    for (const el of elements) {
+        const titleEl = el.querySelector('.result__title');
+        const snippetEl = el.querySelector('.result__snippet');
+        const urlEl = el.querySelector('.result__url') || el.querySelector('a.result__url');
+
+        const title = titleEl ? titleEl.textContent.trim() : '';
+        const snippet = snippetEl ? snippetEl.textContent.trim() : '';
+        const rawUrl = urlEl ? urlEl.getAttribute('href') : '';
         const resultUrl = rawUrl ? resolveDDGUrl(rawUrl) : '';
-        if (title && resultUrl) results.push({ title, snippet, url: resultUrl });
-    });
+
+        if (title && resultUrl) {
+            results.push({ title, snippet, url: resultUrl });
+        }
+    }
 
     const seen = new Set();
     results = results.filter(r => r.url && !seen.has(r.url) && seen.add(r.url)).slice(0, resultsLimit);
