@@ -56,10 +56,11 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
             previousBatchHashes = state.hashes;
             customSourceTimestamps = state.customTs;
         }
-        const deps = await readPackageDeps();
+        const deps = usePackageJson !== false ? await readPackageDeps() : null;
         if (!deps || deps.length === 0) {
             return;
         }
+
 
         const batches = groupIntoBatches(deps, batchSize);
         const activeBlockIds = new Set();
@@ -151,7 +152,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize }) {
                     failedCount++;
                     log(LOG_WARN, chalk.yellow, `block ${blockId} fetch failed → keeping previous`);
                 }
-            })().then(() => executing.delete(promise));
+            })().finally(() => executing.delete(promise));
 
             executing.add(promise);
             if (executing.size >= maxConcurrency) {

@@ -6,7 +6,7 @@ import http from 'http';
 import https from 'https';
 import { webSearch } from './search.js';
 import { readPackageDeps, buildQuery } from './packages.js';
-import { chalk, log, LOG_WARN, LOG_BOLT } from './logger.js';
+import { chalk, log, LOG_WARN, LOG_BOLT, LOG_REFRESH } from './logger.js';
 import { httpsAgent } from './http-agent.js';
 import { sanitizeWebContent } from './sanitize.js';
 import { watch } from 'fs';

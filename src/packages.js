@@ -10,6 +10,9 @@ import { resolveAlias } from './aliases.js';
 
 // ─── Logica Dipendenze ───────────────────────────────
 
+const EXACT_EXCLUDE = new Set(['eslint', 'prettier', 'vite', 'rollup', 'webpack', 'babel', 'turbo', 'esbuild']);
+const SUBSTR_EXCLUDE = ['plugin', 'adapter', '-check', 'lint-staged'];
+
 /**
  * @description Analizza deps di system locali escludendo packages non rilevanti
  * @returns {Promise<Array|null>} Array strings stack locale o null in fallback error
@@ -24,8 +27,6 @@ export async function readPackageDeps() {
         }
         const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
 
-        const EXACT_EXCLUDE = new Set(['eslint', 'prettier', 'vite', 'rollup', 'webpack', 'babel', 'turbo', 'esbuild']);
-        const SUBSTR_EXCLUDE = ['plugin', 'adapter', '-check', 'lint-staged'];
 
         const filterAndFormat = (depsObj) => {
             if (!depsObj) return [];

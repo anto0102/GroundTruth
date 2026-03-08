@@ -29,29 +29,29 @@ const DANGEROUS_PATTERNS = [
 
 const NOISE_PATTERNS = [
     /Skip to content/gi,
-    /Navigation Menu/gi,
-    /Toggle navigation/gi,
-    /Appearance settings/gi,
+    /\bNavigation Menu\b/gi,
+    /\bToggle navigation\b/gi,
+    /\bAppearance settings\b/gi,
     /AI CODE CREATION/gi,
     /GitHub Copilot Write better code with AI/gi,
-    /Sign in/gi,
-    /Sign up/gi,
-    /Notifications/gi,
-    /Fork\s+\d+/gi,
-    /Star\s+[\d.]+[kK]?/gi,
-    /Code/gi,
-    /Issues/gi,
-    /Pull requests/gi,
-    /Actions/gi,
-    /Projects/gi,
-    /Security/gi,
-    /Insights/gi,
-    /Why GitHub/gi,
-    /Solutions/gi,
-    /Resources/gi,
-    /Open Source/gi,
-    /Enterprises/gi,
-    /Startups/gi,
+    /\bSign in\b/gi,
+    /\bSign up\b/gi,
+    /\bNotifications\b/gi,
+    /\bFork\s+\d+\b/gi,
+    /\bStar\s+[\d.]+[kK]?\b/gi,
+    /^Code$/gm,         // Navigazione GitHub/NPM: riga intera
+    /^Issues$/gm,       // Navigazione GitHub: riga intera
+    /^Pull requests$/gm, // Navigazione GitHub: riga intera
+    /^Actions$/gm,      // Navigazione GitHub: riga intera
+    /^Projects$/gm,     // Navigazione GitHub: riga intera
+    /^Security$/gm,     // Navigazione GitHub: riga intera
+    /^Insights$/gm,     // Navigazione GitHub: riga intera
+    /\bWhy GitHub\b/gi,
+    /^Solutions$/gm,    // Navigazione: riga intera
+    /^Resources$/gm,    // Navigazione: riga intera
+    /^Open Source$/gm,  // Navigazione: riga intera
+    /\bEnterprises\b/gi,
+    /\bStartups\b/gi,
     /Customer stories|Ebooks & reports|Events & webinars/gi,
     /GitHub (Sponsors|Skills|Accelerator|Archive Program|Spark|Models)/gi,
     /Weekly Downloads|Unpacked Size|Total Files|Collaborators/gi,

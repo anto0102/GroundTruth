@@ -49,13 +49,13 @@ export async function lookupRegistryUrl(depName) {
         }
 
         // Se l'API restituisce 404/not found
-        registryCache.set(name, null); // Cache negative (così non rifacciamo network)
+        registryCache.set(name, null, 5 * 60 * 1000); // 5 min negative cache for valid "not found"
         return null;
 
     } catch (err) {
         // Failover silente! (timeout o worker rotto). Se Cloudflare fallisce, 
         // noi non diamo errore all'utente ma facciamo DDG search fallback locale naturale.
-        registryCache.set(name, null);
+        registryCache.set(name, null, 30 * 1000); // Solo 30 secondi per errori di rete/timeout
         return null;
     }
 }

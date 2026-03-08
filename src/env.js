@@ -6,7 +6,7 @@ import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
-import { chalk, ts, LOG_WARN, LOG_OK, log } from './logger.js';
+import { chalk, LOG_WARN, LOG_OK, log } from './logger.js';
 import { atomicWrite } from './utils/atomic-write.js';
 
 // ─── Setup shell environment ─────────────────────────

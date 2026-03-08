@@ -4,7 +4,6 @@
  */
 import { writeFile, rename, unlink, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { tmpdir } from 'os';
 import path from 'path';
 
 /**

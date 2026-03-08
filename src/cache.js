@@ -59,9 +59,10 @@ class LRUCache {
      * @description Assegna un nodo alla testa (recent).
      * @param   {string} key   - Target key
      * @param   {any}    value - Target val
+     * @param   {number} [ttl] - Override TTL per questa entry
      * @returns {LRUCache} Istanza chaining
      */
-    set(key, value) {
+    set(key, value, ttl) {
         // Pulizia pre-insert per sovrascrittura o cap bounds
         if (this.cache.has(key)) {
             const old = this.cache.get(key);
@@ -80,7 +81,7 @@ class LRUCache {
         const node = {
             key,
             value,
-            expiresAt: Date.now() + this.ttl,
+            expiresAt: Date.now() + (ttl || this.ttl),
             next: null,
             prev: null
         };

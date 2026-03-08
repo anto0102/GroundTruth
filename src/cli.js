@@ -24,7 +24,7 @@ const interactiveMode = !antigravityMode && !claudeCodeMode && !uninstallMode;
 let port = 8080;
 const portArgIndex = args.indexOf('--port');
 if (portArgIndex !== -1 && args[portArgIndex + 1]) {
-    port = parseInt(args[portArgIndex + 1], 10);
+    port = parseInt(args[portArgIndex + 1], 10) || 8080;
 }
 
 let intervalMinutes = 5;
