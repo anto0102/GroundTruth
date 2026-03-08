@@ -1,64 +1,52 @@
 # GroundTruth
 
-> Zero-configuration context injection layer for LLM-based coding agents.
+> Real-time documentation injection for AI coding agents. No config. No API keys. Just run.
 
-![npm](https://img.shields.io/npm/v/@antodevs/groundtruth)
-![github license](https://img.shields.io/github/license/anto0102/GroundTruth)
-![node version](https://img.shields.io/badge/node-%3E%3D18.0.0-blue)
-
----
-
-## Quick Start (No Install)
-
-Run GroundTruth instantly via `npx`:
-
-### 1. Antigravity Mode (AI Watcher)
-Recommended for automated context injection and skills-based workflows.
-
-```bash
-npx @antodevs/groundtruth --antigravity
-```
-
-### 2. Proxy Mode (Claude Code)
-Intercepts outbound API calls and injects fresh documentation directly into the message payload.
-
-```bash
-npx @antodevs/groundtruth --claude-code
-```
-
-## Installation
-
-To install globally:
-```bash
-npm install -g @antodevs/groundtruth
-```
+[![npm version](https://img.shields.io/npm/v/@antodevs/groundtruth?style=flat-square&color=cb3837&logo=npm)](https://www.npmjs.com/package/@antodevs/groundtruth)
+[![npm downloads](https://img.shields.io/npm/dw/@antodevs/groundtruth?style=flat-square&color=cb3837&logo=npm&label=downloads%2Fweek)](https://www.npmjs.com/package/@antodevs/groundtruth)
+[![GitHub stars](https://img.shields.io/github/stars/anto0102/GroundTruth?style=flat-square&logo=github&color=yellow)](https://github.com/anto0102/GroundTruth/stargazers)
+[![GitHub license](https://img.shields.io/github/license/anto0102/GroundTruth?style=flat-square&color=blue)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen?style=flat-square&logo=node.js)](https://nodejs.org)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](https://github.com/anto0102/GroundTruth/pulls)
 
 ---
 
-## Architecture Overview
+## The Problem
 
-Current-generation AI coding assistants (Claude Code, Antigravity, Cursor) suffer from deterministic knowledge cutoffs, rendering them ineffective when working with bleeding-edge frameworks (e.g., Svelte 5+, React 19). 
+AI coding assistants like Claude Code, Cursor, and Gemini have a knowledge cutoff. When you're building with Svelte 5, React 19, or any fast-moving framework, your agent is coding blind — working from stale docs that may be months or years out of date.
 
-**GroundTruth** acts as a transparent middleware layer that resolves this by dynamically injecting real-time, stack-specific documentation directly into the agent's context window prior to inference.
+## The Solution
 
-### The v0.2 Engine: Global Cloud Intelligence
-
-GroundTruth v0.2 introduces a paradigm shift in context quality and scalability:
-- **Global Cloud Registry**: Bypasses search engines by querying a high-performance **Cloudflare Worker** registry. It covers the top ~200 frameworks with "Golden List" manual precision and over **10,000+ npm packages** via automated background indexing.
-- **Jina Reader API Integration**: Seamlessly parses dynamic, JavaScript-rendered SPAs (like Vercel AI SDK, Next.js, and Svelte docs) into clean, LLM-optimized Markdown.
-- **Automated "Gentle" Indexer**: A remote bot periodically synchronizes the latest documentation URLs from the npm ecosystem directly to the cloud registry, ensuring your context is never stale.
-- **Zero-Config Resilience**: Operates locally with a strictly enforced 1.5s cloud timeout. If the registry is unreachable, it silently falls back to local Readability extraction or search.
-
+**GroundTruth** is a transparent middleware layer that fetches live documentation and injects it directly into your agent's context window before every inference. Zero config. Zero API keys. One command.
 
 ---
 
-## Architecture & Operational Mechanics
+## Quick Start
 
-GroundTruth operates in two distinct execution modes depending on the target agent's architecture. 
+```bash
+# For Claude Code (proxy mode)
+npx @antodevs/groundtruth@latest --claude-code
 
-### 1. Proxy Intercept Mode (Designed for `claude-code`)
+# For Gemini / Antigravity (file watcher mode)
+npx @antodevs/groundtruth@latest --antigravity
+```
 
-In this mode, GroundTruth provisions a local HTTP proxy that intercepts outbound API calls targeting Anthropic's endpoints.
+That's it. GroundTruth runs in the background and handles everything automatically.
+
+---
+
+## How It Works
+
+GroundTruth operates in two modes depending on your agent:
+
+### 1. Proxy Mode — for Claude Code
+
+Spins up a local HTTP proxy that intercepts every outbound API call to Anthropic, enriches the system prompt with fresh documentation, then forwards the mutated request.
+
+```bash
+npx @antodevs/groundtruth@latest --claude-code
+# Then set: ANTHROPIC_BASE_URL=http://localhost:8080
+```
 
 ```mermaid
 sequenceDiagram
@@ -68,16 +56,20 @@ sequenceDiagram
     participant API as Anthropic API
 
     Agent->>Proxy: Send Prompt
-    Proxy->>Jina: Fetch docs (Direct Registry / DDG)
+    Proxy->>Jina: Fetch docs (Registry / DDG)
     Jina-->>Proxy: Return clean Markdown
     Note over Proxy: Injects live context<br/>into System Prompt
     Proxy->>API: Forward mutated request
-    API-->>Agent: Return response
+    API-->>Agent: Response with fresh context
 ```
 
-### 2. File Watcher Mode (Designed for `antigravity` / `gemini`)
+### 2. Antigravity Mode — for Gemini / Antigravity
 
-For agents that support side-channel context ingestion via dotfiles (like Antigravity Rules), GroundTruth runs as a background daemon.
+Runs as a background daemon that watches your `package.json`, fetches docs for your exact dependency versions, and writes them into `~/.gemini/GEMINI.md` automatically.
+
+```bash
+npx @antodevs/groundtruth@latest --antigravity
+```
 
 ```mermaid
 flowchart TD
@@ -91,9 +83,36 @@ flowchart TD
 
 ---
 
-## Configuration (`.groundtruth.json`)
+## The Engine
 
-You can globally or locally configure GroundTruth by creating a `.groundtruth.json` file in your directory:
+GroundTruth's context pipeline is built for precision and speed:
+
+- **Cloudflare Worker Registry** — skips search entirely for known packages. Covers the top ~200 frameworks with hand-curated URLs and 10,000+ npm packages via automated indexing.
+- **Jina Reader API** — renders JavaScript-heavy SPAs (Next.js, Svelte, Vercel AI SDK) into clean LLM-optimized Markdown.
+- **DuckDuckGo Fallback** — for packages not in the registry, falls back to live web search with HTML parsing.
+- **Zero-config resilience** — strict 1.5s timeout on the cloud registry. If anything fails, it silently falls back. Your agent never blocks.
+
+---
+
+## Installation
+
+### Via npx (recommended — always latest)
+```bash
+npx @antodevs/groundtruth@latest --antigravity
+npx @antodevs/groundtruth@latest --claude-code
+```
+
+### Global install
+```bash
+npm install -g @antodevs/groundtruth
+groundtruth --antigravity
+```
+
+---
+
+## Configuration
+
+Create a `.groundtruth.json` in your project root for custom settings:
 
 ```json
 {
@@ -101,52 +120,73 @@ You can globally or locally configure GroundTruth by creating a `.groundtruth.js
   "quality": "high",
   "verbose": true,
   "sources": [
-    { "url": "https://svelte.dev/docs/kit/introduction", "label": "SvelteKit Docs" }
+    { "url": "https://svelte.dev/docs/kit/introduction", "label": "SvelteKit Docs" },
+    { "url": "https://your-internal-wiki.com/api", "label": "Internal API" }
   ]
 }
 ```
 
-- **`maxChars`**: The maximum length of characters injected for a single page. 
-- **`quality`**: `low`, `medium`, or `high`. Controls how many search results to retrieve and the timeout budget.
-- **`sources`**: Useful for custom, internal, or highly specific documentation that GroundTruth should always inject.
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `maxChars` | number | `4000` | Max characters injected per context block |
+| `quality` | `low` \| `medium` \| `high` | `medium` | Controls search depth and timeout budget |
+| `verbose` | boolean | `false` | Enables detailed fetch logging |
+| `sources` | array | `[]` | Custom URLs to always inject (internal docs, wikis, etc.) |
+
+> **Backward compatible:** `maxTokens` is still accepted as an alias for `maxChars`.
 
 ---
 
 ## CLI Reference
 
-| Flag | Mode | Technical Description |
+| Flag | Mode | Description |
 |------|------|-------------|
-| `--claude-code` | Proxy | Initializes HTTP interceptor for Anthropic API payloads. |
-| `--antigravity` | Rules | Initializes background daemon for dotfile synchronization. |
-| `--uninstall` | Cleanup | Removes `ANTHROPIC_BASE_URL` from all shell config files. |
-| `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
-| `--quality <level>`| Both | `low`, `medium`, or `high` quality preset (Default: `medium`). |
-| `--max-chars <n>` | Both | Modifies the character limit per injected context block (Default: `4000`). |
-| `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
-| `--batch-size <n>` | Rules | Changes the amount of dependencies per query chunk for block fetching. |
-| `--verbose` | Both | Enables verbose logging output. |
+| `--claude-code` | Proxy | Starts HTTP proxy interceptor for Anthropic API |
+| `--antigravity` | Watcher | Starts background daemon for dotfile injection |
+| `--uninstall` | Cleanup | Removes `ANTHROPIC_BASE_URL` from all shell configs |
+| `--port <n>` | Proxy | Proxy port (default: `8080`) |
+| `--quality <level>` | Both | `low`, `medium`, or `high` (default: `medium`) |
+| `--max-chars <n>` | Both | Character limit per context block (default: `4000`) |
+| `--interval <n>` | Watcher | Refresh interval in minutes (default: `5`) |
+| `--batch-size <n>` | Watcher | Dependencies per search batch (default: `3`) |
+| `--verbose` | Both | Enable verbose logging |
 
 ---
 
-## Benchmark & Comparison
+## Comparison
 
-GroundTruth is optimized for zero-configuration deployments and minimal token overhead compared to existing MCP solutions.
-
-| Feature | GroundTruth | Jina Reader (Direct) | Crawl4AI / Playwright | Firecrawl |
-|---------|-------------|----------------------|-----------------------|-----------|
-| **Setup Required** | None (1 command) | Scripting needed | High (Docker/Deps) | High (API Key) |
-| **JS Rendering** | ✅ Yes (via Jina) | ✅ Yes | ✅ Yes | ✅ Yes |
-| **Agent Injection** | ✅ Auto (Proxy/File) | ❌ Manual integration | ❌ Manual integration | ❌ Manual integration |
-| **Cost** | Free | Rate limits apply | Free | Paid |
-| **Runtime Footprint** | < 1MB | N/A | ~200MB | N/A |
+| Feature | GroundTruth | Jina Reader (direct) | Crawl4AI / Playwright | Firecrawl |
+|---------|:-----------:|:--------------------:|:---------------------:|:---------:|
+| Setup | ✅ Zero (1 command) | ⚠️ Scripting needed | ❌ Docker + deps | ❌ API key required |
+| JS Rendering | ✅ Via Jina | ✅ Yes | ✅ Yes | ✅ Yes |
+| Agent Injection | ✅ Automatic | ❌ Manual | ❌ Manual | ❌ Manual |
+| Works offline | ✅ Graceful fallback | ❌ No | ❌ No | ❌ No |
+| Cost | ✅ Free | ⚠️ Rate limits | ✅ Free | ❌ Paid |
+| Runtime size | ✅ < 1MB | — | ❌ ~200MB | — |
 
 ---
 
-## System Requirements
-- Node.js runtime (v18.0.0 or higher)
-- Supported Agent (Antigravity or Claude Code)
+## Requirements
+
+- Node.js v18.0.0 or higher
+- Claude Code, Antigravity, or any agent that supports system prompt injection or dotfile context
+
+---
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first.
+
+```bash
+git clone https://github.com/anto0102/GroundTruth.git
+cd GroundTruth
+npm install
+npm test        # run full test suite
+npm run dev     # run with hot reload
+```
 
 ---
 
 ## License
-MIT
+
+MIT © [Anto](https://github.com/anto0102)
