@@ -15,7 +15,7 @@ import path from 'path';
  * @throws {Error} In caso di fallimento filesystem
  */
 export async function atomicWrite(filePath, content, options = {}) {
-    const { backup = true, mode = 0o644 } = options;
+    const { backup = false, mode = 0o644 } = options;
     const tempFile = path.join(path.dirname(filePath), `.gt-${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`);
     const backupPath = `${filePath}.bak`;
 

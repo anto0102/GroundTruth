@@ -14,37 +14,51 @@ import { atomicWrite } from './utils/atomic-write.js';
 /**
  * @description Suggerisce il setup dell'environment variables se non settate correttamente.
  * @param {number} p - HTTP default porta su local instance target
+ * @param {string} [homeDir] - Override home directory (per test)
  * @returns {Promise<void>}
  */
-export async function autoSetEnv(p) {
+export async function autoSetEnv(p, homeDir = os.homedir()) {
     const targetUrl = `http://localhost:${p}`;
+    if (process.env.ANTHROPIC_BASE_URL === targetUrl) return;
 
-    // Se è già settata correttamente, non facciamo nulla
-    if (process.env.ANTHROPIC_BASE_URL === targetUrl) {
-        return;
-    }
-
-    const homeDir = os.homedir();
     const fishConfigFile = path.join(homeDir, '.config', 'fish', 'config.fish');
     const isFish = process.env.SHELL?.includes('fish') || existsSync(fishConfigFile);
 
-    const hint = isFish
-        ? `set -gx ANTHROPIC_BASE_URL ${targetUrl}`
-        : `export ANTHROPIC_BASE_URL=${targetUrl}`;
+    let shellFile, exportLine;
+    if (isFish) {
+        shellFile = fishConfigFile;
+        exportLine = `set -gx ANTHROPIC_BASE_URL ${targetUrl}`;
+    } else if (process.env.SHELL?.includes('zsh') || existsSync(path.join(homeDir, '.zshrc'))) {
+        shellFile = path.join(homeDir, '.zshrc');
+        exportLine = `export ANTHROPIC_BASE_URL=${targetUrl}`;
+    } else {
+        shellFile = path.join(homeDir, '.bashrc');
+        exportLine = `export ANTHROPIC_BASE_URL=${targetUrl}`;
+    }
 
-    log(LOG_WARN, chalk.yellow, chalk.white('ANTHROPIC_BASE_URL not set to GroundTruth') + `  →  ${chalk.yellow(targetUrl)}`);
-    log(LOG_WARN, chalk.yellow, chalk.white('Add this to your shell profile to use Claude Code:') + `\n\n    ${chalk.bold(chalk.cyan(hint))}\n`);
+    try {
+        let content = '';
+        try { content = await fs.readFile(shellFile, 'utf8'); } catch (_) { }
 
-    // Impostiamo per la sessione corrente comunque
+        if (!content.includes(exportLine)) {
+            await atomicWrite(shellFile, content.trimEnd() + '\n\n# Added by GroundTruth\n' + exportLine + '\n');
+            log(LOG_OK, chalk.green, chalk.white('auto-set ANTHROPIC_BASE_URL in') + ' ' + chalk.cyan(shellFile.replace(homeDir, '~')));
+            log(LOG_WARN, chalk.yellow, chalk.white('Restart your shell or run:') + ' ' + chalk.cyan(`source ${shellFile.replace(homeDir, '~')}`));
+        }
+    } catch (e) {
+        // Fallback: mostra solo il warning manuale
+        log(LOG_WARN, chalk.yellow, chalk.white('ANTHROPIC_BASE_URL not set') + `  →  add manually: ${chalk.cyan(exportLine)}`);
+    }
+
     process.env.ANTHROPIC_BASE_URL = targetUrl;
 }
 
 /**
  * @description Rimuove ANTHROPIC_BASE_URL da tutti i file di configurazione shell.
+ * @param {string} [homeDir] - Override home directory (per test)
  * @returns {Promise<void>}
  */
-export async function removeEnv() {
-    const homeDir = os.homedir();
+export async function removeEnv(homeDir = os.homedir()) {
     const targets = [
         { file: path.join(homeDir, '.zshrc'), pattern: /^export ANTHROPIC_BASE_URL=.*\n?/gm },
         { file: path.join(homeDir, '.bashrc'), pattern: /^export ANTHROPIC_BASE_URL=.*\n?/gm },
@@ -60,7 +74,7 @@ export async function removeEnv() {
             const content = await fs.readFile(t.file, 'utf8');
             const result = content.replace(t.pattern, '').replace(/\n{3,}/g, '\n\n');
             if (result !== content) {
-                await atomicWrite(t.file, result);
+                await atomicWrite(t.file, result, { backup: true });
                 const rel = t.file.replace(homeDir, '~');
                 log(LOG_OK, chalk.green, chalk.white('removed ANTHROPIC_BASE_URL from') + ' ' + chalk.white(rel));
                 cleaned++;

@@ -16,6 +16,9 @@ async function withFileLock(filePath, fn) {
     const lockPath = filePath + '.lock';
     let acquired = false;
 
+    let staleResets = 0;
+    const MAX_STALE_RESETS = 3;
+
     for (let i = 0; i < LOCK_MAX_RETRIES; i++) {
         try {
             const handle = await fs.open(lockPath, 'wx');
@@ -27,8 +30,9 @@ async function withFileLock(filePath, fn) {
             // Check if lock exists but is stale (older than 10 seconds)
             try {
                 const stats = await fs.stat(lockPath);
-                if (Date.now() - stats.mtimeMs > 10000) {
+                if (Date.now() - stats.mtimeMs > 10000 && staleResets < MAX_STALE_RESETS) {
                     await fs.unlink(lockPath).catch(() => { });
+                    staleResets++;
                     i--; // Decrement to retry same index after continue
                     continue;
                 }

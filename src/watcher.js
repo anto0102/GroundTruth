@@ -12,6 +12,7 @@ import { chalk, label, log, LOG_WARN, LOG_REFRESH } from './logger.js';
 import { version as appVersion } from './cli.js';
 import { loadBatchState, saveBatchState } from './state.js';
 import { spinner } from '@clack/prompts';
+import { createHash } from 'crypto';
 
 // ─── Scheduler Watcher Instance ──────────────────────
 
@@ -110,12 +111,13 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize, maxCh
                         const nowStr = now.toLocaleString(process.env.GROUNDTRUTH_LOCALE || undefined);
                         const batchTitle = batch.map(b => b.split(' ')[0]).join(', ');
 
+                        const globalMaxChars = Math.min(maxChars, 2000);
                         let globalMd = `## Live Context — ${batchTitle} (${nowStr})\n`;
                         if (registryText) {
-                            globalMd += sanitizeWebContent(registryText, 500) + '\n';
+                            globalMd += sanitizeWebContent(registryText, globalMaxChars) + '\n';
                         } else if (results.length > 0) {
                             globalMd += `### ${results[0].title}\n`;
-                            globalMd += `${sanitizeWebContent(results[0].snippet, 300)} — ${results[0].url}\n`;
+                            globalMd += `${sanitizeWebContent(results[0].snippet, Math.min(300, globalMaxChars))} — ${results[0].url}\n`;
                         }
 
                         let md = `## Live Context — ${batchTitle} (${nowStr})\n`;
@@ -160,7 +162,7 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize, maxCh
         if (customSources && customSources.length > 0) {
             const CUSTOM_SOURCE_TTL_MS = 60 * 60 * 1000;
             const customWork = customSources.map(async (src) => {
-                const blockId = 'src_' + Buffer.from(src.url).toString('base64url').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+                const blockId = 'src_' + createHash('md5').update(src.url).digest('hex').slice(0, 8);
 
                 activeBlockIds.add(blockId);
 
@@ -176,9 +178,10 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize, maxCh
                         const srcLabel = src.label || new URL(src.url).hostname;
                         const md = `## Custom Source — ${srcLabel}\n${sanitizeWebContent(text, maxChars)}\n`;
 
+                        const globalMaxChars = Math.min(maxChars, 2000);
                         await updateGeminiFiles([{
                             blockId,
-                            globalContent: `## ${srcLabel}\n${sanitizeWebContent(text, 500)}\n`,
+                            globalContent: `## ${srcLabel}\n${sanitizeWebContent(text, globalMaxChars)}\n`,
                             workspaceContent: md
                         }], cwd);
                         customSourceTimestamps.set(blockId, Date.now());
@@ -207,13 +210,19 @@ export function startWatcher({ intervalMinutes, usePackageJson, batchSize, maxCh
         if (isFirstRun) {
             s.start('Antigravity is loading initial context...');
         }
+        let firstRunSuccess = false;
         try {
             await updateSkill();
+            firstRunSuccess = true;
         } catch (err) {
             log(LOG_WARN, chalk.yellow, 'updateSkill error: ' + err.message);
         } finally {
             if (isFirstRun) {
-                s.stop('Antigravity active. Context loaded automatically.');
+                if (firstRunSuccess) {
+                    s.stop('Antigravity active. Context loaded automatically.');
+                } else {
+                    s.stop(chalk.yellow('Antigravity started with errors. Check logs above.'));
+                }
                 isFirstRun = false;
             }
         }

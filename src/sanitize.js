@@ -11,18 +11,12 @@ const DANGEROUS_PATTERNS = [
     /forget\s+(all\s+)?(your\s+)?instructions?/gi,
     /new\s+instructions?\s*:/gi,
     /system\s*prompt\s*:/gi,
-    /\[INST\]/gi,
-    /<\|im_start\|>/gi,
-    /<\|im_end\|>/gi,
     /```system/gi,
     /ASSISTANT:\s/gi,
     /HUMAN:\s/gi,
     /\bact\s+as\s+(a|an)\b/gi,
     /pretend\s+(you\s+are|to\s+be)/gi,
     /simulate\s+(a|an)\b/gi,
-    /<\|system\|>/gi,
-    /<<SYS>>/gi,
-    /\[\/INST\]/gi,
     /###\s*(instruction|system|prompt)/gi,
     /override\s+(your\s+)?(previous\s+)?(instructions?|constraints?|rules?)/gi,
 ];
@@ -67,6 +61,16 @@ const NOISE_PATTERNS = [
 const COMBINED_NOISE = new RegExp(NOISE_PATTERNS.map(r => r.source).join('|'), 'gim');
 
 
+// Token strutturali LLM (non sostituiti con [FILTERED], semplicemente rimossi)
+const STRUCTURAL_TOKENS = [
+    /\[INST\]/gi,
+    /\[\/INST\]/gi,
+    /<\|im_start\|>/gi,
+    /<\|im_end\|>/gi,
+    /<\|system\|>/gi,
+    /<<SYS>>/gi
+];
+
 /**
  * @description Filtra pattern pericolosi e rumore di navigazione dal testo web scrappato.
  * @param   {string} text - Testo raw proveniente da web scraping
@@ -78,11 +82,15 @@ export function sanitizeWebContent(text, maxLen = 8000) {
 
     let cleaned = text;
 
-    // 1. Rimuoviamo il rumore di navigazione (V8 Optimized)
+    // 1. Noise patterns (navigazione UI)
     cleaned = cleaned.replace(COMBINED_NOISE, '');
 
-    // 2. Rimuoviamo pattern pericolosi ricorsivamente
-    // Protezione contro bypass (es: "ignore [INST] previous")
+    // 2. Rimuovi token strutturali prima (semplice rimozione, non [FILTERED])
+    for (const p of STRUCTURAL_TOKENS) {
+        cleaned = cleaned.replace(p, '');
+    }
+
+    // 3. Pattern di injection ricorsivi
     let lastLen;
     do {
         lastLen = cleaned.length;
@@ -91,7 +99,7 @@ export function sanitizeWebContent(text, maxLen = 8000) {
         }
     } while (cleaned.length !== lastLen);
 
-    // 3. Normalizzazione spazi bianchi per risparmiare token
+    // 4. Normalizzazione spazi bianchi
     cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
     return cleaned.slice(0, maxLen);

@@ -28,6 +28,15 @@ export async function readPackageDeps() {
         const pkg = JSON.parse(await fs.readFile(pkgPath, 'utf8'));
 
 
+        function cleanVersionString(v) {
+            const str = String(v);
+            // Filtra protocolli monorepo: workspace:, link:, file:, portal:
+            if (/^(workspace|link|file|portal):/.test(str)) return null;
+            const cleaned = str.replace(/[\^~>=<*]/g, '').trim();
+            if (!cleaned || cleaned === 'latest' || cleaned === 'next' || cleaned === 'beta') return null;
+            return cleaned.split('.').slice(0, 2).join('.');
+        }
+
         const filterAndFormat = (depsObj) => {
             if (!depsObj) return [];
             return Object.entries(depsObj)
@@ -39,10 +48,12 @@ export async function readPackageDeps() {
                     return true;
                 })
                 .map(([n, v]) => {
+                    const ver = cleanVersionString(v);
+                    if (!ver) return null;
                     let cleanName = resolveAlias(n);
-                    let cleanVersion = String(v).replace(/[\^~>=<]/g, '').split('.').slice(0, 2).join('.');
-                    return `${cleanName} ${cleanVersion}`;
-                });
+                    return `${cleanName} ${ver}`;
+                })
+                .filter(Boolean);
         };
 
         const depMap = new Map();

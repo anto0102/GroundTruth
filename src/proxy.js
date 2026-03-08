@@ -46,6 +46,7 @@ import { maxChars, qualitySettings, verbose } from './cli.js';
 export async function createServer(usePackageJson) {
     let packageQueryCache = null;
     let cacheStale = true;
+    let pendingInvalidation = false;
     let refreshPromise = null;
 
     if (usePackageJson) {
@@ -58,7 +59,11 @@ export async function createServer(usePackageJson) {
         const pkgPath = path.resolve(process.cwd(), 'package.json');
         try {
             watch(pkgPath, { persistent: false }, () => {
-                cacheStale = true;
+                if (refreshPromise) {
+                    pendingInvalidation = true;
+                } else {
+                    cacheStale = true;
+                }
                 log(LOG_REFRESH, chalk.cyan, chalk.white('package.json changed — cache invalidated'));
             });
         } catch (_) { }
@@ -71,7 +76,12 @@ export async function createServer(usePackageJson) {
                     if (depEntries) {
                         packageQueryCache = buildQuery(depEntries);
                     }
-                    cacheStale = false;
+                    if (pendingInvalidation) {
+                        pendingInvalidation = false;
+                        cacheStale = true;
+                    } else {
+                        cacheStale = false;
+                    }
                 }).finally(() => {
                     refreshPromise = null;
                 });
@@ -198,20 +208,23 @@ export async function createServer(usePackageJson) {
             }
 
             const reqBodyStr = JSON.stringify(parsedBody);
+            const anthropicBase = process.env.GROUNDTRUTH_ANTHROPIC_BASE || 'https://api.anthropic.com';
+            const geminiBase = process.env.GROUNDTRUTH_GEMINI_BASE || 'https://generativelanguage.googleapis.com';
+
             const targetUrlStr = protocol === 'ANTHROPIC'
-                ? `https://api.anthropic.com${req.url}`
-                : `https://generativelanguage.googleapis.com${req.url}`;
+                ? `${anthropicBase}${req.url}`
+                : `${geminiBase}${req.url}`;
 
             const targetUrl = new URL(targetUrlStr);
             const headers = { ...req.headers };
             delete headers['host'];
             headers['content-length'] = Buffer.byteLength(reqBodyStr);
 
-            const proxyReq = https.request(targetUrl, { method: req.method, headers, agent: httpsAgent }, (proxyRes) => {
+            const requester = targetUrl.protocol === 'https:' ? https : http;
+            const proxyReq = requester.request(targetUrl, { method: req.method, headers, agent: targetUrl.protocol === 'https:' ? httpsAgent : undefined }, (proxyRes) => {
                 const responseHeaders = { ...proxyRes.headers };
                 delete responseHeaders['content-security-policy'];
                 delete responseHeaders['x-content-type-options'];
-                delete responseHeaders['content-encoding'];
                 delete responseHeaders['content-length'];
 
                 res.writeHead(proxyRes.statusCode, responseHeaders);

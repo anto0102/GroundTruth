@@ -5,7 +5,7 @@
 import './src/http-agent.js';
 import { chalk, label } from './src/logger.js';
 import { intro, outro, select, isCancel, cancel } from '@clack/prompts';
-import { usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, interactiveMode, port, intervalMinutes, batchSize, version, maxChars, quality, qualitySettings, verbose, customSources } from './src/cli.js';
+import { usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, interactiveMode, port, intervalMinutes, batchSize, version, maxChars, quality, qualitySettings, verbose, customSources, stateDir } from './src/cli.js';
 import { createServer } from './src/proxy.js';
 import { autoSetEnv, removeEnv } from './src/env.js';
 import { startWatcher } from './src/watcher.js';
@@ -21,7 +21,9 @@ const runAntigravity = () => {
     quality,
     qualitySettings,
     verbose,
-    customSources
+    customSources,
+    stateDir,
+    cwd: process.cwd(),
   });
   process.on('SIGTERM', () => { watcher.stop(); process.exit(0); });
   process.on('SIGINT', () => { watcher.stop(); process.exit(0); });

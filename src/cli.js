@@ -10,8 +10,10 @@ const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.
 // ─── Arg Parsers ─────────────────────────────────────
 
 const args = process.argv.slice(2);
-const usePackageJson = args.includes('--use-package-json');
 const antigravityMode = args.includes('--antigravity');
+const usePackageJson = antigravityMode
+    ? !args.includes('--no-package-json')
+    : args.includes('--use-package-json');
 const claudeCodeMode = args.includes('--claude-code');
 const uninstallMode = args.includes('--uninstall');
 
@@ -52,6 +54,9 @@ const cliQuality = qualityIndex !== -1 && ['low', 'medium', 'high'].includes(arg
 
 const cliVerbose = args.includes('--verbose');
 
+const stateDirIndex = args.indexOf('--state-dir');
+const stateDir = stateDirIndex !== -1 ? args[stateDirIndex + 1] : undefined;
+
 // ─── Merge CLI + .groundtruth.json ───────────────────
 
 const fileConfig = await loadConfig();
@@ -65,5 +70,5 @@ const customSources = fileConfig.sources;
 export {
     args, usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, interactiveMode,
     port, intervalMinutes, batchSize, version,
-    maxChars, quality, qualitySettings, verbose, customSources
+    maxChars, quality, qualitySettings, verbose, customSources, stateDir
 };
