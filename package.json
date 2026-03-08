@@ -1,6 +1,6 @@
 {
   "name": "@antodevs/groundtruth",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Lightweight Node.js proxy to intercept API requests from coding agents and inject fresh web context",
   "publishConfig": {
     "access": "public"
