@@ -97,7 +97,7 @@ You can globally or locally configure GroundTruth by creating a `.groundtruth.js
 
 ```json
 {
-  "maxTokens": 4000,
+  "maxChars": 4000,
   "quality": "high",
   "verbose": true,
   "sources": [
@@ -106,7 +106,7 @@ You can globally or locally configure GroundTruth by creating a `.groundtruth.js
 }
 ```
 
-- **`maxTokens`**: The maximum length of characters injected for a single page. 
+- **`maxChars`**: The maximum length of characters injected for a single page. 
 - **`quality`**: `low`, `medium`, or `high`. Controls how many search results to retrieve and the timeout budget.
 - **`sources`**: Useful for custom, internal, or highly specific documentation that GroundTruth should always inject.
 
@@ -121,7 +121,7 @@ You can globally or locally configure GroundTruth by creating a `.groundtruth.js
 | `--uninstall` | Cleanup | Removes `ANTHROPIC_BASE_URL` from all shell config files. |
 | `--port <n>` | Proxy | Overrides default proxy listener port (Default: `8080`). |
 | `--quality <level>`| Both | `low`, `medium`, or `high` quality preset (Default: `medium`). |
-| `--max-tokens <n>` | Both | Modifies the character limit per injected context block (Default: `4000`). |
+| `--max-chars <n>` | Both | Modifies the character limit per injected context block (Default: `4000`). |
 | `--interval <n>` | Rules | Overrides the polling interval for documentation refresh in minutes (Default: `5`). |
 | `--batch-size <n>` | Rules | Changes the amount of dependencies per query chunk for block fetching. |
 | `--verbose` | Both | Enables verbose logging output. |

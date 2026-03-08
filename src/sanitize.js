@@ -64,7 +64,7 @@ const NOISE_PATTERNS = [
 ];
 
 
-const COMBINED_NOISE = new RegExp(NOISE_PATTERNS.map(r => r.source).join('|'), 'gi');
+const COMBINED_NOISE = new RegExp(NOISE_PATTERNS.map(r => r.source).join('|'), 'gim');
 
 
 /**

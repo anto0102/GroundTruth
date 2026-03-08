@@ -33,7 +33,7 @@ export async function autoSetEnv(p) {
         : `export ANTHROPIC_BASE_URL=${targetUrl}`;
 
     log(LOG_WARN, chalk.yellow, chalk.white('ANTHROPIC_BASE_URL not set to GroundTruth') + `  →  ${chalk.yellow(targetUrl)}`);
-    log(LOG_WARN, chalk.yellow, chalk.white('Add this to your shell profile to use Claude Code:') + `\n\n    ${chalk.cyan.bold(hint)}\n`);
+    log(LOG_WARN, chalk.yellow, chalk.white('Add this to your shell profile to use Claude Code:') + `\n\n    ${chalk.bold(chalk.cyan(hint))}\n`);
 
     // Impostiamo per la sessione corrente comunque
     process.env.ANTHROPIC_BASE_URL = targetUrl;

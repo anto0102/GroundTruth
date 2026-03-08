@@ -8,8 +8,8 @@ export class CircuitBreaker {
      * @param {Object} options Imposta le policies di fault limit e timeout windows.
      */
     constructor(options = {}) {
-        this.failureThreshold = options.failureThreshold || 5;
-        this.resetTimeout = options.resetTimeout || 60000;
+        this.failureThreshold = options.failureThreshold ?? 5;
+        this.resetTimeout = options.resetTimeout ?? 60000;
         this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN
         this.failures = 0;
         this.lastFailureTime = null;
@@ -43,7 +43,7 @@ export class CircuitBreaker {
 
     onSuccess() {
         if (this.state === 'HALF_OPEN') {
-            this.halfOpenSuccesses = (this.halfOpenSuccesses || 0) + 1;
+            this.halfOpenSuccesses = this.halfOpenSuccesses + 1;
             if (this.halfOpenSuccesses >= 2) {
                 this.failures = 0;
                 this.state = 'CLOSED';

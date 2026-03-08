@@ -11,7 +11,7 @@ import { httpsAgent } from './http-agent.js';
 import { sanitizeWebContent } from './sanitize.js';
 import { watch } from 'fs';
 import path from 'path';
-import { maxTokens, qualitySettings, verbose } from './cli.js';
+import { maxChars, qualitySettings, verbose } from './cli.js';
 
 /**
  * @typedef {Object} AnthropicMessage
@@ -148,7 +148,7 @@ export async function createServer(usePackageJson) {
             try {
                 if (!query || query.trim() === String(new Date().getFullYear())) throw new Error('Empty query');
                 // parallel load in proxy app process to boost response load
-                const { results, pageText } = await webSearch(query, false, {
+                const { results, pageText } = await webSearch(query, {
                     ddgResults: qualitySettings.ddgResults,
                     maxLen: qualitySettings.charsPerPage,
                     jinaTimeout: qualitySettings.jinaTimeout,
@@ -160,7 +160,7 @@ export async function createServer(usePackageJson) {
                 results.forEach((r, i) => {
                     contextBlock += `${i + 1}. ${r.title}: ${sanitizeWebContent(r.snippet, 500)} (${r.url})\n`;
                 });
-                if (pageText) contextBlock += `\nFULL TEXT:\n${sanitizeWebContent(pageText, maxTokens)}\n`;
+                if (pageText) contextBlock += `\nFULL TEXT:\n${sanitizeWebContent(pageText, maxChars)}\n`;
                 contextBlock += `--- END WEB CONTEXT ---\n`;
                 didInject = true;
             } catch (_) {

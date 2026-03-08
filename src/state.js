@@ -8,18 +8,19 @@ import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 
-const STATE_DIR = path.join(os.homedir(), '.groundtruth');
-const STATE_FILE = path.join(STATE_DIR, 'watcher-state.json');
+const DEFAULT_STATE_DIR = path.join(os.homedir(), '.groundtruth');
+const getStateFile = (baseDir = DEFAULT_STATE_DIR) => path.join(baseDir, 'watcher-state.json');
 
 /**
  * @description Carica gli hash validati e memorizzati dallo schedule storage locale.
  * @param {string} currentVersion - Versione attuale dell'applicazione per validare la cache.
  * @returns {Promise<Map>} Restituisce le hash map entries persistite o una mappa vuota se la versione differisce.
  */
-export async function loadBatchState(currentVersion) {
+export async function loadBatchState(currentVersion, baseDir) {
+    const stateFile = getStateFile(baseDir);
     try {
-        if (!existsSync(STATE_FILE)) return { hashes: new Map(), customTs: new Map() };
-        const data = await readFile(STATE_FILE, 'utf8');
+        if (!existsSync(stateFile)) return { hashes: new Map(), customTs: new Map() };
+        const data = await readFile(stateFile, 'utf8');
         const state = JSON.parse(data);
 
         // Invalida la cache se la versione è differente (forza refresh dopo update)
@@ -42,14 +43,16 @@ export async function loadBatchState(currentVersion) {
  * @param {string} version - Versione attuale dell'applicazione.
  * @returns {Promise<void>} 
  */
-export async function saveBatchState(hashesMap, customTsMap, version) {
-    await mkdir(STATE_DIR, { recursive: true });
+export async function saveBatchState(hashesMap, customTsMap, version, baseDir) {
+    const stateDir = baseDir || DEFAULT_STATE_DIR;
+    const stateFile = getStateFile(stateDir);
+    await mkdir(stateDir, { recursive: true });
     const state = {
         version: version,
         updatedAt: new Date().toISOString(),
         hashes: Object.fromEntries(hashesMap),
         customTs: Object.fromEntries(customTsMap)
     };
-    await atomicWrite(STATE_FILE, JSON.stringify(state, null, 2), { backup: false });
+    await atomicWrite(stateFile, JSON.stringify(state, null, 2), { backup: false });
 }
 

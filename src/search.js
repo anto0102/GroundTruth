@@ -200,11 +200,10 @@ async function doSearch(query, resultsLimit = 3) {
 /**
  * @description Punto d'accesso caching+retry orchestrator web.
  * @param   {string}  query        - Input utente di ricerca convertibile web
- * @param   {boolean} parallel     - Promise.all fast per multiple page scraping
  * @param   {Object}  opts         - { ddgResults, maxLen, jinaTimeout, verbose }
  * @returns {Promise<Object>} Oggetto risultati + pageText formattato str
  */
-export async function webSearch(query, parallel = false, opts = {}) {
+export async function webSearch(query, opts = {}) {
     const { ddgResults = 3, maxLen = 4000, jinaTimeout = 8000, verbose = false } = opts;
 
     const cached = searchCache.get(query);
@@ -220,13 +219,8 @@ export async function webSearch(query, parallel = false, opts = {}) {
     const fetchOpts = { jinaTimeout, maxLen, verbose };
     let pageText = '';
 
-    if (parallel) {
-        const pages = await Promise.all(results.map(r => fetchPageContent(r.url, userAgent, fetchOpts)));
-        pageText = pages.filter(Boolean).join('\n\n');
-    } else {
-        if (results[0]) {
-            pageText = await fetchPageContent(results[0].url, userAgent, fetchOpts);
-        }
+    if (results[0]) {
+        pageText = await fetchPageContent(results[0].url, userAgent, fetchOpts);
     }
 
     const resultData = { results, pageText };

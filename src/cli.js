@@ -5,7 +5,7 @@
 import { chalk } from './logger.js';
 import { loadConfig, resolveQuality } from './config.js';
 
-const version = __APP_VERSION__;
+const version = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0-dev';
 
 // ─── Arg Parsers ─────────────────────────────────────
 
@@ -40,9 +40,9 @@ const batchSize = batchSizeIndex !== -1
 
 // ─── New v1.2 flags ──────────────────────────────────
 
-const maxTokensIndex = args.indexOf('--max-tokens');
-const cliMaxTokens = maxTokensIndex !== -1
-    ? Math.max(500, Math.min(parseInt(args[maxTokensIndex + 1]) || 4000, 8000))
+const maxCharsIndex = args.indexOf('--max-tokens') !== -1 ? args.indexOf('--max-tokens') : args.indexOf('--max-chars');
+const cliMaxChars = maxCharsIndex !== -1
+    ? Math.max(500, Math.min(parseInt(args[maxCharsIndex + 1]) || 4000, 8000))
     : null;
 
 const qualityIndex = args.indexOf('--quality');
@@ -56,7 +56,7 @@ const cliVerbose = args.includes('--verbose');
 
 const fileConfig = await loadConfig();
 
-const maxTokens = cliMaxTokens ?? fileConfig.maxTokens;
+const maxChars = cliMaxChars ?? fileConfig.maxChars;
 const quality = cliQuality ?? fileConfig.quality;
 const verbose = cliVerbose || fileConfig.verbose;
 const qualitySettings = resolveQuality(quality);
@@ -65,5 +65,5 @@ const customSources = fileConfig.sources;
 export {
     args, usePackageJson, antigravityMode, claudeCodeMode, uninstallMode, interactiveMode,
     port, intervalMinutes, batchSize, version,
-    maxTokens, quality, qualitySettings, verbose, customSources
+    maxChars, quality, qualitySettings, verbose, customSources
 };

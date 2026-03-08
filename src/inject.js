@@ -29,7 +29,8 @@ async function withFileLock(filePath, fn) {
                 const stats = await fs.stat(lockPath);
                 if (Date.now() - stats.mtimeMs > 10000) {
                     await fs.unlink(lockPath).catch(() => { });
-                    continue; // Retry after removing stale lock
+                    i--; // Decrement to retry same index after continue
+                    continue;
                 }
             } catch (_) { }
             await new Promise(r => setTimeout(r, LOCK_RETRY_DELAY));
@@ -91,7 +92,7 @@ export async function removeStaleBlocks(filePath, activeBlockIds) {
     if (!existsSync(filePath)) return;
     return withFileLock(filePath, async () => {
         let fileContent = await fs.readFile(filePath, 'utf8');
-        const regex = /<!-- groundtruth:block-(\w+):start -->[\s\S]*?<!-- groundtruth:block-\1:end -->/g;
+        const regex = /<!-- groundtruth:block-([\w-]+):start -->[\s\S]*?<!-- groundtruth:block-\1:end -->/g;
 
         let modified = false;
         fileContent = fileContent.replace(regex, (match, blockId) => {
@@ -115,9 +116,9 @@ export async function removeStaleBlocks(filePath, activeBlockIds) {
  * @param {Array} blocks  - Blocchi aggiornati
  * @returns {Promise<void>}
  */
-export async function updateGeminiFiles(blocks) {
+export async function updateGeminiFiles(blocks, cwd = process.cwd()) {
     const homeDir = os.homedir();
-    const rulesDir = path.join(process.cwd(), '.gemini');
+    const rulesDir = path.join(cwd, '.gemini');
     await fs.mkdir(rulesDir, { recursive: true });
     const skillFile = path.join(rulesDir, 'GEMINI.md');
 
